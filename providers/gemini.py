@@ -1,17 +1,29 @@
-import json
+import logging
+
 from google import genai
+from google.genai import types
+
 from config import settings
 from providers.base import LLMProvider
+
+logger = logging.getLogger(__name__)
+
+# Map OpenAI roles to Gemini roles
+_ROLE_MAP = {"user": "user", "assistant": "model", "system": "user"}
 
 
 class GeminiProvider(LLMProvider):
     def __init__(self):
         self.client = genai.Client(api_key=settings.llm_api_key)
-        self.model = settings.llm_model or "gemini-2.0-flash"
+        self.model = settings.llm_model or "gemini-2.5-flash"
 
     async def chat_stream(self, messages: list[dict], system_prompt: str):
         contents = self._to_contents(messages)
-        config = {"system_instruction": system_prompt} if system_prompt else {}
+        config = (
+            types.GenerateContentConfig(system_instruction=system_prompt)
+            if system_prompt
+            else None
+        )
 
         response = await self.client.aio.models.generate_content_stream(
             model=self.model,
@@ -20,13 +32,20 @@ class GeminiProvider(LLMProvider):
         )
 
         async for chunk in response:
-            if chunk.text:
-                yield chunk.text
+            text = getattr(chunk, "text", None)
+            if text:
+                yield text
 
-    def _to_contents(self, messages: list[dict]) -> list[dict]:
-        """Convert OpenAI-style messages to Gemini contents format."""
+    def _to_contents(self, messages: list[dict]) -> list[types.Content]:
+        """Convert OpenAI-style messages to Gemini Content objects."""
         contents = []
         for msg in messages:
-            role = "user" if msg["role"] == "user" else "model"
-            contents.append({"role": role, "parts": [{"text": msg["content"]}]})
+            raw_role = msg.get("role", "user")
+            role = _ROLE_MAP.get(raw_role)
+            if role is None:
+                logger.warning("Unknown role %r, defaulting to 'user'", raw_role)
+                role = "user"
+            contents.append(
+                types.Content(role=role, parts=[types.Part.from_text(text=msg.get("content", ""))])
+            )
         return contents
