@@ -12,30 +12,29 @@ Deliverables:
 - [x] `GET /health` endpoint
 - [x] Bearer token authentication
 - [x] Provider abstraction (abstract base class + factory)
-- [x] Gemini provider via `google-genai` SDK
-- [x] GLM (ZhipuAI) provider via OpenAI-compatible API
-- [x] MiniMax provider via OpenAI-compatible API
-- [x] Pydantic settings with `.env` file support
-- [x] Makefile for common tasks
-- [x] `.env.example` template
 
-## Phase 2: Enhancements (Planned)
+## Phase 2: Multi-Provider Routing & Analytics (Complete)
 
-Improvements for reliability, observability, and developer experience.
+Model-based routing, expanded provider support, analytics pipeline.
 
-**Status:** Not started
+**Status:** Complete
 
-| Feature | Description | Priority |
-|---------|-------------|----------|
-| Rate limiting | Per-key request rate limits to prevent abuse | High |
-| Request logging | Structured request/response logging with latency | High |
-| Error retry | Automatic retry with backoff on transient provider errors | Medium |
-| Token usage | Report token counts in SSE stream metadata | Medium |
-| Model listing | `GET /v1/models` endpoint to list available models | Medium |
-| Connection pooling | Reuse HTTP clients across requests instead of creating per-request | Medium |
-| Additional providers | Claude, DeepSeek, Mistral, etc. | Low |
-| Batched streaming | Buffer tokens for improved throughput on slow connections | Low |
-| Graceful shutdown | Drain in-flight requests on SIGTERM | Low |
+Deliverables:
+- [x] Model-based routing via `MODEL_ROUTING` dict (client specifies `model`, gateway resolves provider)
+- [x] 8 providers: OpenAI, DeepSeek, MoonshotAI, Gemini, GLM, MiniMax, ByteDance
+- [x] Shared `OpenAICompatibleProvider` base class (6 providers share implementation)
+- [x] Per-provider API keys with `LLM_API_KEY` fallback
+- [x] SQLite-backed analytics storage (aiosqlite)
+- [x] Request tracking: latency, TTFT, token usage, cost
+- [x] `GET /v1/models` -- OpenAI-compatible model listing
+- [x] `GET /v1/analytics/summary` -- aggregate stats
+- [x] `GET /v1/analytics/models` -- per-model stats
+- [x] `GET /v1/analytics/requests` -- paginated request listing
+- [x] Model pricing table with cost calculation
+- [x] FastAPI lifespan for DB init/shutdown
+- [x] Routes extracted to `routes/chat.py` and `routes/analytics.py`
+- [x] Analytics package: `analytics/db.py`, `analytics/cost.py`, `analytics/routing.py`
+- [x] Test suite: pytest with httpx test client
 
 ## Phase 3: Production Readiness (Planned)
 
@@ -48,10 +47,10 @@ Infrastructure and operational concerns for production deployment.
 | Docker image | Multi-stage Dockerfile with non-root user | High |
 | Docker Compose | Local dev and production compose configs | High |
 | CI/CD pipeline | GitHub Actions: lint, test, build, push image | High |
-| Unit tests | pytest with mocked provider SDKs | High |
-| Integration tests | End-to-end tests against real providers (CI secrets) | Medium |
 | Prometheus metrics | Request count, latency histogram, error rate | Medium |
 | Health checks | Liveness (process) and readiness (provider connectivity) | Medium |
+| Rate limiting | Per-key request rate limits | Medium |
+| Error retry | Automatic retry with backoff on transient provider errors | Medium |
 | Secrets management | Support Vault/AWS Secrets Manager beyond .env files | Low |
 | Horizontal scaling | Stateless design allows multi-instance deployment | Low |
 | API versioning | Support multiple API versions simultaneously | Low |
@@ -59,7 +58,7 @@ Infrastructure and operational concerns for production deployment.
 ## Success Criteria
 
 - **Phase 1**: Three providers streaming tokens end-to-end (achieved)
-- **Phase 2**: Request logging and rate limiting operational
+- **Phase 2**: 8 providers with model-based routing and analytics pipeline (achieved)
 - **Phase 3**: Docker-based deployment with CI/CD and monitoring
 
 ## Related Docs

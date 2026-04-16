@@ -1,4 +1,4 @@
-.PHONY: install start stop health dev clean
+.PHONY: install start stop health dev clean test test-unit test-integration
 
 # Default: install deps + start server
 all: install start
@@ -29,12 +29,17 @@ stop:
 health:
 	@curl -sf http://localhost:8000/health && echo "" || echo "Server not responding"
 
-# Test chat endpoint (requires APP_API_KEY set in .env)
+# Run all tests
 test:
-	@curl -s -N -X POST http://localhost:8000/v1/chat/completions \
-		-H "Authorization: Bearer $$(grep APP_API_KEY .env | cut -d= -f2)" \
-		-H "Content-Type: application/json" \
-		-d '{"messages":[{"role":"user","content":"Say hello in 3 words"}],"system_prompt":"You are a helpful assistant","stream":true}'
+	.venv/bin/python -m pytest tests/ -v
+
+# Unit tests only (no FastAPI server needed)
+test-unit:
+	.venv/bin/python -m pytest tests/ -v -k "not client"
+
+# Integration tests (uses test client)
+test-integration:
+	.venv/bin/python -m pytest tests/ -v -k "client"
 
 # Clean Python artifacts
 clean:

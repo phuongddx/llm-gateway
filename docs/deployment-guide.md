@@ -15,8 +15,8 @@ make install
 cp .env.example .env
 
 # 4. Edit .env with your API keys
-# Required: LLM_API_KEY, APP_API_KEY
-# Optional: LLM_PROVIDER, LLM_MODEL, LLM_BASE_URL
+# Required: at least one provider API key, APP_API_KEY
+# See Environment Variables section below
 ```
 
 ### Run
@@ -38,7 +38,7 @@ make health
 # Expected: {"status": "ok"}
 
 make test
-# Expected: SSE stream with tokens
+# Expected: all pytest tests pass
 ```
 
 ### Stop
@@ -49,29 +49,44 @@ make stop
 
 ## Environment Variables Reference
 
+### Core Settings
+
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `LLM_PROVIDER` | Yes | `gemini` | Which LLM provider to use. Options: `gemini`, `glm`, `minimax` |
-| `LLM_API_KEY` | Yes | -- | API key for the selected LLM provider |
-| `LLM_MODEL` | No | Provider default | Override the default model name |
 | `APP_API_KEY` | Yes | `changeme` | Bearer token for gateway authentication |
-| `LLM_BASE_URL` | No | Provider default | Override the provider API base URL |
+| `ANALYTICS_DB_PATH` | No | `data/analytics.db` | SQLite database path for analytics |
+
+### Provider API Keys
+
+| Variable | Description |
+|----------|-------------|
+| `LLM_API_KEY` | Legacy fallback key (used if per-provider key not set) |
+| `OPENAI_API_KEY` | OpenAI API key (gpt-4o, gpt-4o-mini, o3) |
+| `DEEPSEEK_API_KEY` | DeepSeek API key (deepseek-chat, deepseek-reasoner) |
+| `MOONSHOT_API_KEY` | MoonshotAI API key (kimi-k2.5, moonshot-v1-128k) |
+| `BYTEDANCE_API_KEY` | ByteDance Doubao API key (doubao-pro-*) |
+
+Note: Gemini, GLM, and MiniMax use `LLM_API_KEY` as their provider key (no dedicated env var). Set `LLM_API_KEY` if using these providers.
+
+### Legacy Settings (still supported)
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `LLM_PROVIDER` | No | `gemini` | Legacy single-provider mode |
+| `LLM_MODEL` | No | Provider default | Override model name |
+| `LLM_BASE_URL` | No | Provider default | Override provider API base URL |
 
 ### Default Models by Provider
 
-| Provider | Default Model |
-|----------|---------------|
-| `gemini` | `gemini-2.5-flash` |
-| `glm` | `glm-4-flash` |
-| `minimax` | `MiniMax-Text-01` |
-
-### Default Base URLs by Provider
-
-| Provider | Default Base URL |
-|----------|------------------|
-| `gemini` | N/A (uses SDK default) |
-| `glm` | `https://open.bigmodel.cn/api/paas/v4` |
-| `minimax` | `https://api.minimax.chat/v1` |
+| Provider | Default Model | Base URL |
+|----------|---------------|----------|
+| `openai` | `gpt-4o` | `https://api.openai.com/v1` |
+| `deepseek` | `deepseek-chat` | `https://api.deepseek.com` |
+| `moonshot` | `kimi-k2.5` | `https://api.moonshot.cn/v1` |
+| `gemini` | `gemini-2.5-flash` | N/A (uses SDK default) |
+| `glm` | `glm-4-flash` | `https://open.bigmodel.cn/api/paas/v4` |
+| `minimax` | `MiniMax-Text-01` | `https://api.minimax.chat/v1` |
+| `bytedance` | *(endpoint ID required)* | `https://ark.cn-beijing.volces.com/api/v3` |
 
 ## Production Deployment
 
@@ -83,9 +98,10 @@ python3 -m venv .venv
 .venv/bin/pip install -r requirements.txt
 
 # 2. Set environment variables (use secrets manager, not .env file in production)
-export LLM_PROVIDER=gemini
-export LLM_API_KEY=your-production-key
 export APP_API_KEY=$(cat /run/secrets/app_api_key)
+export OPENAI_API_KEY=$(cat /run/secrets/openai_key)
+export DEEPSEEK_API_KEY=$(cat /run/secrets/deepseek_key)
+export ANALYTICS_DB_PATH=/data/analytics.db
 
 # 3. Run with uvicorn
 .venv/bin/uvicorn main:app --host 0.0.0.0 --port 8000 --workers 4
@@ -98,6 +114,7 @@ export APP_API_KEY=$(cat /run/secrets/app_api_key)
 - **Secrets**: Use environment variables or secrets manager, never commit `.env` to version control
 - **Logging**: Configure Python logging to output structured JSON
 - **Health checks**: Use `GET /health` for load balancer health checks
+- **Analytics DB**: Store on persistent volume, `data/` dir is auto-created on startup
 
 ### Process Manager
 
@@ -126,11 +143,12 @@ WantedBy=multi-user.target
 Not yet implemented. Planned approach:
 
 ```dockerfile
-FROM python:3.14-slim
+FROM python:3.12-slim
 WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
+RUN mkdir -p data
 EXPOSE 8000
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
 ```
@@ -138,9 +156,9 @@ CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
 Run:
 ```bash
 docker build -t llm-gateway .
-docker run -e LLM_PROVIDER=gemini \
-           -e LLM_API_KEY=your-key \
-           -e APP_API_KEY=your-secret \
+docker run -e APP_API_KEY=your-secret \
+           -e OPENAI_API_KEY=your-key \
+           -v /persistent/analytics.db:/data/analytics.db \
            -p 8000:8000 llm-gateway
 ```
 
@@ -150,23 +168,30 @@ docker run -e LLM_PROVIDER=gemini \
 
 - Check port 8000 is not in use: `lsof -i :8000`
 - Verify `.env` exists: `make start` auto-creates from `.env.example` if missing
+- Check analytics DB path is writable: `ANALYTICS_DB_PATH` defaults to `data/analytics.db`
 
 ### 401 Unauthorized
 
 - Confirm `APP_API_KEY` in `.env` matches the `Authorization: Bearer <token>` header
 - Default `APP_API_KEY` is `changeme` -- change it in production
 
+### 400 Unknown model
+
+- Check model name matches an entry in the routing table
+- Use `GET /v1/models` to list all available models
+- Model names are case-sensitive
+
 ### Provider errors in SSE stream
 
-- Verify `LLM_API_KEY` is valid for the selected provider
-- Check `LLM_BASE_URL` is correct if overridden
-- Check provider API status (Google AI, ZhipuAI, MiniMax)
+- Verify provider-specific API key is set (e.g., `OPENAI_API_KEY`, `DEEPSEEK_API_KEY`)
+- If using Gemini/GLM/MiniMax: set `LLM_API_KEY`
+- Check provider API status page for outages
 
-### No tokens in response
+### Analytics not recording
 
-- Some models require specific message formats
-- Ensure `messages` array contains at least one message
-- Check server logs: `cat server.log`
+- Verify `ANALYTICS_DB_PATH` is writable
+- Check server logs for analytics DB errors
+- Ensure `data/` directory exists (auto-created on startup)
 
 ## Related Docs
 

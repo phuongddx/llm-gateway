@@ -1,23 +1,26 @@
+"""Google Gemini provider — uses native google-genai SDK with usage metadata extraction."""
+
 import logging
+from typing import AsyncGenerator
 
 from google import genai
 from google.genai import types
 
-from config import settings
-from providers.base import LLMProvider
+from providers.base import LLMProvider, StreamChunk, UsageData
 
 logger = logging.getLogger(__name__)
 
-# Map OpenAI roles to Gemini roles
 _ROLE_MAP = {"user": "user", "assistant": "model", "system": "user"}
 
 
 class GeminiProvider(LLMProvider):
-    def __init__(self):
-        self.client = genai.Client(api_key=settings.llm_api_key)
-        self.model = settings.llm_model or "gemini-2.5-flash"
+    def __init__(self, api_key: str, model: str | None = None):
+        self.client = genai.Client(api_key=api_key)
+        self.model = model or "gemini-2.5-flash"
 
-    async def chat_stream(self, messages: list[dict], system_prompt: str):
+    async def chat_stream(
+        self, messages: list[dict], system_prompt: str
+    ) -> AsyncGenerator[StreamChunk, None]:
         contents = self._to_contents(messages)
         config = (
             types.GenerateContentConfig(system_instruction=system_prompt)
@@ -32,9 +35,20 @@ class GeminiProvider(LLMProvider):
         )
 
         async for chunk in response:
+            # Check for usage metadata (typically on final chunk)
+            usage_meta = getattr(chunk, "usage_metadata", None)
+            if usage_meta:
+                usage = UsageData(
+                    prompt_tokens=getattr(usage_meta, "prompt_token_count", 0) or 0,
+                    completion_tokens=getattr(usage_meta, "candidates_token_count", 0) or 0,
+                    total_tokens=getattr(usage_meta, "total_token_count", 0) or 0,
+                )
+                yield ("", usage)
+
+            # Text content
             text = getattr(chunk, "text", None)
             if text:
-                yield text
+                yield (text, None)
 
     def _to_contents(self, messages: list[dict]) -> list[types.Content]:
         """Convert OpenAI-style messages to Gemini Content objects."""
