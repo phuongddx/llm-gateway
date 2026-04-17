@@ -14,6 +14,7 @@ from pydantic import BaseModel
 from analytics.cost import calculate_cost
 from analytics.routing import resolve_provider
 from config import settings
+from rate_limiter import limiter
 from providers import create_provider
 
 logger = logging.getLogger(__name__)
@@ -37,17 +38,18 @@ def verify_auth(authorization: str = Header(...)):
 
 
 @router.post("/v1/chat/completions")
-async def chat(fastapi_request: Request, request: ChatRequest, _auth=Depends(verify_auth)):
+@limiter.limit(settings.rate_limit)
+async def chat(request: Request, body: ChatRequest, _auth=Depends(verify_auth)):
     # Resolve model name to (provider, actual_model_id)
     try:
-        provider_name, model_id = resolve_provider(request.model)
+        provider_name, model_id = resolve_provider(body.model)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
     provider = create_provider(provider_name, model_id)
-    analytics_db = getattr(fastapi_request.app.state, "analytics_db", None)
+    analytics_db = getattr(request.app.state, "analytics_db", None)
     return StreamingResponse(
-        _tracked_stream(provider, request, provider_name, model_id, analytics_db),
+        _tracked_stream(provider, body, provider_name, model_id, analytics_db),
         media_type="text/event-stream",
     )
 
@@ -75,8 +77,8 @@ async def _tracked_stream(
 
     except Exception as e:
         error_msg = str(e)
-        error_payload = json.dumps({"error": error_msg})
-        yield f"data: {error_payload}\n\n"
+        logger.error("Provider stream error: %s", error_msg)
+        yield f"data: {json.dumps({'error': 'Internal error processing request'})}\n\n"
 
     finally:
         # Calculate metrics

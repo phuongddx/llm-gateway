@@ -1,13 +1,15 @@
 import logging
 from contextlib import asynccontextmanager
-from datetime import datetime, timezone
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 
 from analytics.db import AnalyticsDB
 from config import settings
+from rate_limiter import limiter
 
 logger = logging.getLogger(__name__)
 
@@ -15,6 +17,10 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Initialize analytics DB on startup, close on shutdown."""
+    # Validate required config
+    if not settings.app_api_key:
+        raise RuntimeError("APP_API_KEY env var is required but not set")
+
     # Startup
     db_path = settings.analytics_db_path
     Path(db_path).parent.mkdir(parents=True, exist_ok=True)
@@ -29,9 +35,13 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="LLM Gateway", lifespan=lifespan)
 
+# Rate limiting
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[o.strip() for o in settings.cors_origins.split(",") if o.strip()],
     allow_methods=["*"],
     allow_headers=["*"],
 )

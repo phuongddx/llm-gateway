@@ -15,8 +15,14 @@ class Settings(BaseSettings):
     bytedance_api_key: str = ""
     glm_api_key: str = ""
 
-    # Gateway auth
-    app_api_key: str = "changeme"
+    # Gateway auth — MUST be set via APP_API_KEY env var
+    app_api_key: str = ""
+
+    # CORS
+    cors_origins: str = ""  # Comma-separated allowed origins (empty = no CORS)
+
+    # Rate limiting
+    rate_limit: str = "60/minute"  # Max requests per window per client
 
     # Analytics
     analytics_db_path: str = "data/analytics.db"
