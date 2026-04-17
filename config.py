@@ -13,6 +13,7 @@ class Settings(BaseSettings):
     deepseek_api_key: str = ""
     moonshot_api_key: str = ""
     bytedance_api_key: str = ""
+    glm_api_key: str = ""
 
     # Gateway auth
     app_api_key: str = "changeme"
@@ -29,6 +30,7 @@ class Settings(BaseSettings):
             "deepseek": self.deepseek_api_key,
             "moonshot": self.moonshot_api_key,
             "bytedance": self.bytedance_api_key,
+            "glm": self.glm_api_key,
         }
         return provider_keys.get(provider, "") or self.llm_api_key
 

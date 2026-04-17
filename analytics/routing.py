@@ -15,8 +15,16 @@ MODEL_ROUTING: dict[str, tuple[str, str]] = {
     "moonshot-v1-128k": ("moonshot", "moonshot-v1-128k"),
     # Google Gemini
     "gemini-2.5-flash": ("gemini", "gemini-2.5-flash"),
-    # ZhipuAI GLM (also serves ZAI models)
-    "glm-4-flash": ("glm", "glm-4-flash"),
+    # Z.AI (ZhipuAI GLM)
+    "glm-5.1": ("glm", "glm-5.1"),
+    "glm-5-turbo": ("glm", "glm-5-turbo"),
+    "glm-5": ("glm", "glm-5"),
+    "glm-4.7": ("glm", "glm-4.7"),
+    "glm-4.7-flash": ("glm", "glm-4.7-flash"),
+    "glm-4.7-flashx": ("glm", "glm-4.7-flashx"),
+    "glm-4.6": ("glm", "glm-4.6"),
+    "glm-4.5": ("glm", "glm-4.5"),
+    "glm-4.5-flash": ("glm", "glm-4.5-flash"),
     # MiniMax
     "MiniMax-Text-01": ("minimax", "MiniMax-Text-01"),
     # ByteDance Doubao (endpoint IDs — use ep- prefix pattern)
