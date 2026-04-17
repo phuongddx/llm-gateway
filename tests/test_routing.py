@@ -37,5 +37,6 @@ def test_routing_table_has_expected_models():
     assert "deepseek-reasoner" in MODEL_ROUTING
     assert "kimi-k2.5" in MODEL_ROUTING
     assert "gemini-2.5-flash" in MODEL_ROUTING
-    assert "glm-4-flash" in MODEL_ROUTING
+    assert "gemini-2.0-flash-lite" in MODEL_ROUTING
+    assert "glm-4.7-flash" in MODEL_ROUTING
     assert "MiniMax-Text-01" in MODEL_ROUTING

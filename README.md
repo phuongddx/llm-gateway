@@ -195,7 +195,7 @@ All settings via `.env` file or environment variables.
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
 | `LLM_PROVIDER` | No | `gemini` | Legacy single-provider selection |
-| `LLM_MODEL` | No | Provider default | Override model name |
+| `LLM_MODEL` | No | `gemini-2.0-flash-lite` | Override model name |
 | `LLM_BASE_URL` | No | Provider default | Override provider base URL |
 
 ## Supported Providers
@@ -205,7 +205,7 @@ All settings via `.env` file or environment variables.
 | OpenAI | `gpt-4o` | `api.openai.com/v1` | `openai` |
 | DeepSeek | `deepseek-chat` | `api.deepseek.com` | `openai` (compatible) |
 | MoonshotAI | `kimi-k2.5` | `api.moonshot.cn/v1` | `openai` (compatible) |
-| Google Gemini | `gemini-2.5-flash` | N/A (native SDK) | `google-genai` |
+| Google Gemini | `gemini-2.0-flash-lite` | N/A (native SDK) | `google-genai` |
 | Z.AI GLM | `glm-4.7-flash` | `api.z.ai/api/paas/v4` | `openai` (compatible) |
 | MiniMax | `MiniMax-Text-01` | `api.minimax.chat/v1` | `openai` (compatible) |
 | ByteDance Doubao | *(endpoint ID)* | `ark.cn-beijing.volces.com/api/v3` | `openai` (compatible) |

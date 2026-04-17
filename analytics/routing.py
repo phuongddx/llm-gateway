@@ -15,6 +15,8 @@ MODEL_ROUTING: dict[str, tuple[str, str]] = {
     "moonshot-v1-128k": ("moonshot", "moonshot-v1-128k"),
     # Google Gemini
     "gemini-2.5-flash": ("gemini", "gemini-2.5-flash"),
+    "gemini-2.0-flash": ("gemini", "gemini-2.0-flash"),
+    "gemini-2.0-flash-lite": ("gemini", "gemini-2.0-flash-lite"),
     # Z.AI (ZhipuAI GLM)
     "glm-5.1": ("glm", "glm-5.1"),
     "glm-5-turbo": ("glm", "glm-5-turbo"),

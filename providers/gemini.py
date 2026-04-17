@@ -16,7 +16,7 @@ _ROLE_MAP = {"user": "user", "assistant": "model", "system": "user"}
 class GeminiProvider(LLMProvider):
     def __init__(self, api_key: str, model: str | None = None):
         self.client = genai.Client(api_key=api_key)
-        self.model = model or "gemini-2.5-flash"
+        self.model = model or "gemini-2.0-flash-lite"
 
     async def chat_stream(
         self, messages: list[dict], system_prompt: str

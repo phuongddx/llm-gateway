@@ -5,7 +5,7 @@ class Settings(BaseSettings):
     # Legacy single-provider config (backward compat fallback)
     llm_provider: str = "gemini"
     llm_api_key: str = ""
-    llm_model: str = ""
+    llm_model: str = "gemini-2.0-flash-lite"
     llm_base_url: str | None = None
 
     # Per-provider API keys

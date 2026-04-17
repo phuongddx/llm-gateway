@@ -23,7 +23,7 @@ router = APIRouter()
 
 
 class ChatRequest(BaseModel):
-    model: str  # Required — gateway resolves to provider via routing table
+    model: str = "gemini-2.0-flash-lite"  # Defaults to cheapest Gemini model
     messages: list[dict]
     system_prompt: str = ""
     stream: bool = True
