@@ -38,7 +38,7 @@ Applications that integrate with LLMs face vendor lock-in when they hardcode cal
 | FR-8 | Route to DeepSeek provider | Must | Done |
 | FR-9 | Route to MoonshotAI (Kimi) provider | Must | Done |
 | FR-10 | Route to Gemini provider via `google-genai` SDK | Must | Done |
-| FR-11 | Route to GLM (ZhipuAI) provider | Must | Done |
+| FR-11 | Route to GLM (Z.AI) provider | Must | Done |
 | FR-12 | Route to MiniMax provider | Must | Done |
 | FR-13 | Route to ByteDance (Doubao) provider | Must | Done |
 | FR-14 | List available models via `GET /v1/models` | Must | Done |

@@ -5,7 +5,7 @@ A FastAPI-based API gateway that routes chat completion requests to multiple LLM
 ## Features
 
 - **Model-based routing** -- client specifies `model`, gateway resolves to provider via routing table
-- **8 providers** -- OpenAI, DeepSeek, MoonshotAI (Kimi), Gemini, GLM (ZhipuAI), MiniMax, ByteDance (Doubao)
+- **8 providers** -- OpenAI, DeepSeek, MoonshotAI (Kimi), Gemini, Z.AI (GLM), MiniMax, ByteDance (Doubao)
 - **OpenAI-compatible API** -- standard `/v1/chat/completions` endpoint
 - **Server-Sent Events streaming** -- real-time token delivery with usage metadata
 - **Analytics pipeline** -- SQLite-backed request logging with cost tracking, TTFT, latency
@@ -41,7 +41,8 @@ Edit `.env` with your settings:
 OPENAI_API_KEY=your-openai-key
 DEEPSEEK_API_KEY=your-deepseek-key
 MOONSHOT_API_KEY=your-moonshot-key
-LLM_API_KEY=your-gemini-or-glm-key
+GLM_API_KEY=your-glm-key
+LLM_API_KEY=your-gemini-or-minimax-key
 
 # Gateway auth
 APP_API_KEY=your-gateway-secret
@@ -186,7 +187,8 @@ All settings via `.env` file or environment variables.
 | `DEEPSEEK_API_KEY` | DeepSeek (deepseek-chat, deepseek-reasoner) |
 | `MOONSHOT_API_KEY` | MoonshotAI (kimi-k2.5, moonshot-v1-128k) |
 | `BYTEDANCE_API_KEY` | ByteDance Doubao (doubao-pro-*) |
-| `LLM_API_KEY` | Fallback key for Gemini, GLM, MiniMax (and any provider without a dedicated key) |
+| `GLM_API_KEY` | Z.AI GLM (glm-5.1, glm-4.7-flash, etc.) |
+| `LLM_API_KEY` | Fallback key for Gemini, MiniMax (and any provider without a dedicated key) |
 
 ### Legacy (Single Provider Mode)
 
@@ -204,7 +206,7 @@ All settings via `.env` file or environment variables.
 | DeepSeek | `deepseek-chat` | `api.deepseek.com` | `openai` (compatible) |
 | MoonshotAI | `kimi-k2.5` | `api.moonshot.cn/v1` | `openai` (compatible) |
 | Google Gemini | `gemini-2.5-flash` | N/A (native SDK) | `google-genai` |
-| ZhipuAI GLM | `glm-4-flash` | `open.bigmodel.cn/api/paas/v4` | `openai` (compatible) |
+| Z.AI GLM | `glm-4.7-flash` | `api.z.ai/api/paas/v4` | `openai` (compatible) |
 | MiniMax | `MiniMax-Text-01` | `api.minimax.chat/v1` | `openai` (compatible) |
 | ByteDance Doubao | *(endpoint ID)* | `ark.cn-beijing.volces.com/api/v3` | `openai` (compatible) |
 

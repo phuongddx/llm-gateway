@@ -20,6 +20,7 @@ Settings module using `pydantic_settings.BaseSettings`. Reads from `.env`.
 | `deepseek_api_key` | `str` | `""` | `DEEPSEEK_API_KEY` |
 | `moonshot_api_key` | `str` | `""` | `MOONSHOT_API_KEY` |
 | `bytedance_api_key` | `str` | `""` | `BYTEDANCE_API_KEY` |
+| `glm_api_key` | `str` | `""` | `GLM_API_KEY` |
 | `app_api_key` | `str` | `changeme` | `APP_API_KEY` |
 | `analytics_db_path` | `str` | `data/analytics.db` | `ANALYTICS_DB_PATH` |
 
@@ -56,22 +57,22 @@ Analytics REST endpoints + model listing.
 - `GET /v1/analytics/requests` -- paginated recent requests (limit/offset)
 - All endpoints require auth via `verify_auth` dependency
 
-### `analytics/routing.py` (41 LOC)
+### `analytics/routing.py` (49 LOC)
 
 Model routing table. Maps model name to `(provider_name, actual_model_id)`.
 
-`MODEL_ROUTING` dict contains 13 entries across 7 providers:
+`MODEL_ROUTING` dict contains 21 entries across 7 providers:
 - OpenAI: gpt-4o, gpt-4o-mini, o3
 - DeepSeek: deepseek-chat, deepseek-reasoner
 - MoonshotAI: kimi-k2.5, kimi-k2-thinking, moonshot-v1-128k
 - Gemini: gemini-2.5-flash
-- GLM: glm-4-flash
+- Z.AI (GLM): glm-5.1, glm-5-turbo, glm-5, glm-4.7, glm-4.7-flash, glm-4.7-flashx, glm-4.6, glm-4.5, glm-4.5-flash
 - MiniMax: MiniMax-Text-01
 - ByteDance: doubao-pro-32k, doubao-pro-128k
 
 `resolve_provider(model)` raises `ValueError` with available models list if unknown.
 
-### `analytics/cost.py` (26 LOC)
+### `analytics/cost.py` (33 LOC)
 
 `MODEL_PRICING` dict maps model name to `(input_per_1m, output_per_1m)` USD pricing.
 
@@ -139,7 +140,7 @@ Uses `AsyncOpenAI` with `stream_options={"include_usage": True}` to get token co
 
 ### `providers/glm.py` (8 LOC)
 
-`GLMProvider(OpenAICompatibleProvider)` -- base_url `open.bigmodel.cn/api/paas/v4`, default `glm-4-flash`.
+`GLMProvider(OpenAICompatibleProvider)` -- base_url `api.z.ai/api/paas/v4`, default `glm-4.7-flash`.
 
 ### `providers/minimax.py` (8 LOC)
 

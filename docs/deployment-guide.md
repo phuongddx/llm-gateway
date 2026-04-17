@@ -65,8 +65,9 @@ make stop
 | `DEEPSEEK_API_KEY` | DeepSeek API key (deepseek-chat, deepseek-reasoner) |
 | `MOONSHOT_API_KEY` | MoonshotAI API key (kimi-k2.5, moonshot-v1-128k) |
 | `BYTEDANCE_API_KEY` | ByteDance Doubao API key (doubao-pro-*) |
+| `GLM_API_KEY` | Z.AI GLM API key (glm-5.1, glm-4.7-flash, etc.) |
 
-Note: Gemini, GLM, and MiniMax use `LLM_API_KEY` as their provider key (no dedicated env var). Set `LLM_API_KEY` if using these providers.
+Note: Gemini and MiniMax use `LLM_API_KEY` as their provider key (no dedicated env var). Set `LLM_API_KEY` if using these providers.
 
 ### Legacy Settings (still supported)
 
@@ -84,7 +85,7 @@ Note: Gemini, GLM, and MiniMax use `LLM_API_KEY` as their provider key (no dedic
 | `deepseek` | `deepseek-chat` | `https://api.deepseek.com` |
 | `moonshot` | `kimi-k2.5` | `https://api.moonshot.cn/v1` |
 | `gemini` | `gemini-2.5-flash` | N/A (uses SDK default) |
-| `glm` | `glm-4-flash` | `https://open.bigmodel.cn/api/paas/v4` |
+| `glm` | `glm-4.7-flash` | `https://api.z.ai/api/paas/v4` |
 | `minimax` | `MiniMax-Text-01` | `https://api.minimax.chat/v1` |
 | `bytedance` | *(endpoint ID required)* | `https://ark.cn-beijing.volces.com/api/v3` |
 
@@ -162,6 +163,18 @@ docker run -e APP_API_KEY=your-secret \
            -p 8000:8000 llm-gateway
 ```
 
+## Ngrok Tunnel (Local Expose)
+
+Expose localhost:8000 to the internet via ngrok:
+
+```bash
+bash .ngrok/expose.sh
+```
+
+Static domain: `hyperpolysyllabically-saronic-mee.ngrok-free.app`
+
+Requires ngrok installed and authenticated. Use for testing webhooks or remote access during development.
+
 ## Troubleshooting
 
 ### Server won't start
@@ -184,7 +197,7 @@ docker run -e APP_API_KEY=your-secret \
 ### Provider errors in SSE stream
 
 - Verify provider-specific API key is set (e.g., `OPENAI_API_KEY`, `DEEPSEEK_API_KEY`)
-- If using Gemini/GLM/MiniMax: set `LLM_API_KEY`
+- If using Gemini/MiniMax: set `LLM_API_KEY`; for GLM: set `GLM_API_KEY`
 - Check provider API status page for outages
 
 ### Analytics not recording

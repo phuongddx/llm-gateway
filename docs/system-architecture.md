@@ -22,7 +22,7 @@
        +------+ +------+ +-----+ +----+ +--+--+ +------+ +--------+
            |       |        |      |        |        |        |
            v       v        v      v        v        v        v
-       OpenAI  DeepSeek  Moonshot Google  ZhipuAI  MiniMax  Volcengine
+       OpenAI  DeepSeek  Moonshot Google  Z.AI     MiniMax  Volcengine
        API     API       API      AI API  API      API      API
 ```
 
@@ -79,7 +79,7 @@ LLMProvider (ABC)
         +-- DeepSeekProvider  (api.deepseek.com)
         +-- MoonshotProvider  (api.moonshot.cn)
         +-- ByteDanceProvider (ark.cn-beijing.volces.com)
-        +-- GLMProvider       (open.bigmodel.cn)
+        +-- GLMProvider       (api.z.ai)
         +-- MiniMaxProvider   (api.minimax.chat)
 ```
 
@@ -88,10 +88,14 @@ LLMProvider (ABC)
 ```python
 MODEL_ROUTING = {
     "gpt-4o":            ("openai",   "gpt-4o"),
+    "gpt-4o-mini":       ("openai",   "gpt-4o-mini"),
+    "o3":                ("openai",   "o3"),
     "deepseek-chat":     ("deepseek", "deepseek-chat"),
+    "deepseek-reasoner": ("deepseek", "deepseek-reasoner"),
     "kimi-k2.5":         ("moonshot", "kimi-k2.5"),
     "gemini-2.5-flash":  ("gemini",   "gemini-2.5-flash"),
-    "glm-4-flash":       ("glm",      "glm-4-flash"),
+    "glm-5.1":           ("glm",      "glm-5.1"),
+    "glm-4.7-flash":     ("glm",      "glm-4.7-flash"),
     "MiniMax-Text-01":   ("minimax",  "MiniMax-Text-01"),
     "doubao-pro-32k":    ("bytedance","doubao-pro-32k"),
     ...
@@ -227,6 +231,7 @@ GET /v1/analytics/requests?since=&limit=50&offset=0
     deepseek_api_key
     moonshot_api_key
     bytedance_api_key
+    glm_api_key
 ```
 
 `get_api_key(provider)` returns provider-specific key, falls back to `llm_api_key`.
