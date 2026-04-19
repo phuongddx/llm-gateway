@@ -3,7 +3,6 @@
 import asyncio
 import json
 import logging
-import os
 import time
 from uuid import uuid4
 
@@ -23,10 +22,13 @@ router = APIRouter()
 
 
 class ChatRequest(BaseModel):
-    model: str = "gemini-2.0-flash-lite"  # Defaults to cheapest Gemini model
+    model: str = "auto"
     messages: list[dict]
     system_prompt: str = ""
     stream: bool = True
+    temperature: float | None = None
+    max_tokens: int | None = None
+    top_p: float | None = None
 
 
 def verify_auth(authorization: str = Header(...)):
@@ -40,22 +42,30 @@ def verify_auth(authorization: str = Header(...)):
 @router.post("/v1/chat/completions")
 @limiter.limit(settings.rate_limit)
 async def chat(request: Request, body: ChatRequest, _auth=Depends(verify_auth)):
-    # Resolve model name to (provider, actual_model_id)
-    try:
-        provider_name, model_id = resolve_provider(body.model)
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    # Resolve model name to (provider, actual_model_id) — passthrough for unknown models
+    provider_name, model_id = resolve_provider(body.model)
 
     provider = create_provider(provider_name, model_id)
     analytics_db = getattr(request.app.state, "analytics_db", None)
+
+    gen_params = None
+    if body.temperature is not None or body.max_tokens is not None or body.top_p is not None:
+        gen_params = {}
+        if body.temperature is not None:
+            gen_params["temperature"] = body.temperature
+        if body.max_tokens is not None:
+            gen_params["max_tokens"] = body.max_tokens
+        if body.top_p is not None:
+            gen_params["top_p"] = body.top_p
+
     return StreamingResponse(
-        _tracked_stream(provider, body, provider_name, model_id, analytics_db),
+        _tracked_stream(provider, body, provider_name, model_id, analytics_db, gen_params),
         media_type="text/event-stream",
     )
 
 
 async def _tracked_stream(
-    provider, request: ChatRequest, provider_name: str, model_id: str, analytics_db
+    provider, request: ChatRequest, provider_name: str, model_id: str, analytics_db, gen_params=None
 ):
     """Wrap provider.chat_stream() with analytics tracking."""
     request_id = str(uuid4())
@@ -66,7 +76,7 @@ async def _tracked_stream(
     error_msg: str | None = None
 
     try:
-        async for token, usage in provider.chat_stream(request.messages, request.system_prompt):
+        async for token, usage in provider.chat_stream(request.messages, request.system_prompt, gen_params):
             if usage:
                 usage_data = usage
             elif token:

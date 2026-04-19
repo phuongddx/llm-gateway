@@ -23,19 +23,28 @@ class OpenAICompatibleProvider(LLMProvider):
         self.model = model or self.default_model
 
     async def chat_stream(
-        self, messages: list[dict], system_prompt: str
+        self, messages: list[dict], system_prompt: str, params=None
     ) -> AsyncGenerator[StreamChunk, None]:
         all_messages = []
         if system_prompt:
             all_messages.append({"role": "system", "content": system_prompt})
         all_messages.extend(messages)
 
-        stream = await self.client.chat.completions.create(
+        kwargs = dict(
             model=self.model,
             messages=all_messages,
             stream=True,
             stream_options={"include_usage": True},
         )
+        if params:
+            if "temperature" in params:
+                kwargs["temperature"] = params["temperature"]
+            if "max_tokens" in params:
+                kwargs["max_tokens"] = params["max_tokens"]
+            if "top_p" in params:
+                kwargs["top_p"] = params["top_p"]
+
+        stream = await self.client.chat.completions.create(**kwargs)
 
         async for chunk in stream:
             # Final chunk carries usage stats

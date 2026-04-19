@@ -6,24 +6,27 @@
 +--------+        HTTP/SSE         +--------------+
 | Client | <---------------------> | LLM Gateway  |
 | (curl, |  POST /v1/chat/         | (FastAPI)    |
-|  app)  |  completions            |              |
-+--------+  GET  /v1/models        | config.py    |
-            GET  /v1/analytics/*   | main.py      |
+|  app,  |  completions            |              |
+|  web)  |  GET  /v1/models        | config.py    |
++--------+  GET  /v1/analytics/*   | main.py      |
+            GET  /playground       | static/      |
                                   +------+-------+
                                          |
                           resolve_provider(model_name)
                                          |
-           +-------+--------+-------+----+---+--------+--------+
-           |       |        |       |    |   |        |        |
-           v       v        v       v    v   v        v        v
-       +------+ +------+ +-----+ +----+ +--+--+ +------+ +--------+
-       |OpenAI| |Deep  | |Moon | |Gem | |GLM  | |Mini  | |Byte   |
-       |      | |Seek  | |shot | |ini | |     | |Max   | |Dance  |
-       +------+ +------+ +-----+ +----+ +--+--+ +------+ +--------+
-           |       |        |      |        |        |        |
-           v       v        v      v        v        v        v
-       OpenAI  DeepSeek  Moonshot Google  Z.AI     MiniMax  Volcengine
-       API     API       API      AI API  API      API      API
+                                         v
+                                  +--------------+
+                                  | Manifest     |
+                                  | Provider     |
+                                  | (OpenAI-compat)
+                                  +------+-------+
+                                         |
+                                         v
+                                  app.manifest.build
+                                  (500+ models: OpenAI,
+                                   Anthropic, Google,
+                                   DeepSeek, Moonshot,
+                                   GLM, MiniMax, etc.)
 ```
 
 ## Request Flow
@@ -31,7 +34,8 @@
 ```
 1. Client sends POST /v1/chat/completions
    with Authorization: Bearer <token>
-   and JSON body {model, messages, system_prompt, stream}
+   and JSON body {model, messages, system_prompt, stream,
+                   temperature?, max_tokens?, top_p?}
 
 2. FastAPI middleware
    +-- CORS middleware (allow all)
@@ -44,13 +48,14 @@
    +-- Rejects with 401 if mismatch
 
 4. Endpoint handler
-   +-- resolve_provider(request.model) -> (provider_name, model_id)
-   +-- create_provider(provider_name, model_id) -> LLMProvider instance
+   +-- resolve_provider(request.model) -> ("manifest", model_id)
+   +-- create_provider("manifest", model_id) -> ManifestProvider instance
+   +-- Builds GenParams dict from temperature/max_tokens/top_p if present
    +-- Returns StreamingResponse with _tracked_stream() generator
 
 5. _tracked_stream() generator
    +-- Records start time
-   +-- Calls provider.chat_stream(messages, system_prompt)
+   +-- Calls provider.chat_stream(messages, system_prompt, gen_params)
    +-- Yields "data: {"token": "..."}\n\n" for each text chunk
    +-- Tracks first-token time (TTFT)
    +-- Collects usage data from final chunk
@@ -67,61 +72,48 @@
 LLMProvider (ABC)
   |  chat_stream() -> AsyncGenerator[StreamChunk, None]
   |  StreamChunk = (str, UsageData | None)
-  |
-  +-- GeminiProvider
-  |     Uses google-genai native SDK
-  |     Role mapping: user->user, assistant->model, system->user
+  |  GenParams: {temperature?, max_tokens?, top_p?}  (TypedDict, total=False)
   |
   +-- OpenAICompatibleProvider (shared base)
-        Uses openai.AsyncOpenAI client
-        Subclasses set: base_url, default_model
-        +-- OpenAIProvider    (api.openai.com)
-        +-- DeepSeekProvider  (api.deepseek.com)
-        +-- MoonshotProvider  (api.moonshot.cn)
-        +-- ByteDanceProvider (ark.cn-beijing.volces.com)
-        +-- GLMProvider       (api.z.ai)
-        +-- MiniMaxProvider   (api.minimax.chat)
+  |     Uses openai.AsyncOpenAI client
+  |     base_url and default_model as class attrs
+  |
+  +-- ManifestProvider
+        base_url = "https://app.manifest.build/v1"
+        default_model = "auto"
+        Smart routing to 500+ models
 ```
 
 ### Model Routing
 
 ```python
 MODEL_ROUTING = {
-    "gpt-4o":            ("openai",   "gpt-4o"),
-    "gpt-4o-mini":       ("openai",   "gpt-4o-mini"),
-    "o3":                ("openai",   "o3"),
-    "deepseek-chat":     ("deepseek", "deepseek-chat"),
-    "deepseek-reasoner": ("deepseek", "deepseek-reasoner"),
-    "kimi-k2.5":         ("moonshot", "kimi-k2.5"),
-    "gemini-2.5-flash":  ("gemini",   "gemini-2.5-flash"),
-    "glm-5.1":           ("glm",      "glm-5.1"),
-    "glm-4.7-flash":     ("glm",      "glm-4.7-flash"),
-    "MiniMax-Text-01":   ("minimax",  "MiniMax-Text-01"),
-    "doubao-pro-32k":    ("bytedance","doubao-pro-32k"),
+    "auto":              ("manifest", "auto"),
+    "gpt-5.4":           ("manifest", "gpt-5.4"),
+    "gpt-4o":            ("manifest", "gpt-4o"),
+    "claude-sonnet":     ("manifest", "claude-sonnet-4-6"),
+    "gemini-2.5-flash":  ("manifest", "gemini-2.5-flash"),
+    "deepseek-chat":     ("manifest", "deepseek-chat"),
+    "glm-5.1":           ("manifest", "glm-5.1"),
     ...
 }
 
 def resolve_provider(model) -> (provider_name, model_id)
 ```
 
-Client specifies `model` in the request body. Gateway resolves to provider via routing table. No per-request env var needed.
+All routes point to `("manifest", <model_id>)`. Unknown model names pass through to Manifest as-is, giving access to the full 500+ model catalog. Use `model="auto"` for Manifest smart routing.
 
 ### Factory Dispatch
 
 ```python
 def create_provider(provider_name, model, api_key) -> LLMProvider:
     key = api_key or settings.get_api_key(provider_name)
-    match provider_name:
-        "openai"   -> OpenAIProvider(api_key=key, model=model)
-        "deepseek" -> DeepSeekProvider(...)
-        "moonshot" -> MoonshotProvider(...)
-        "gemini"   -> GeminiProvider(...)
-        "glm"      -> GLMProvider(...)
-        "minimax"  -> MiniMaxProvider(...)
-        "bytedance"-> ByteDanceProvider(...)
+    # All requests route through Manifest
+    from providers.manifest import ManifestProvider
+    return ManifestProvider(api_key=key, model=model)
 ```
 
-Lazy imports inside match cases avoid loading unused SDKs. API keys resolved per-provider with `llm_api_key` fallback.
+Single provider. API key resolved via `settings.get_api_key("manifest")` which returns `MANIFEST_API_KEY` with `LLM_API_KEY` fallback.
 
 ### Data Flow: Message Transformation
 
@@ -130,22 +122,17 @@ OpenAI format (input)
   {"role": "user", "content": "Hello"}
 
   +---------------+------------------------------------------+
-  | Gemini        | Convert to types.Content                 |
-  |               | role="user", parts=[Part.from_text()]    |
-  |               | system_prompt -> GenerateContentConfig    |
-  +---------------+------------------------------------------+
-  | OpenAI-compat | Pass through as-is (already compatible)  |
-  | (all others)  | Prepend system_prompt as system message  |
+  | Manifest      | Pass through as-is (OpenAI-compatible)   |
+  | Provider      | Prepend system_prompt as system message  |
   +---------------+------------------------------------------+
 ```
 
 ### Usage Data Flow
 
 ```
-Provider SDK
+Manifest Provider (OpenAI-compatible)
   |
-  +-- OpenAI-compatible: final chunk has chunk.usage
-  +-- Gemini: final chunk has usage_metadata attribute
+  +-- final chunk has chunk.usage
   |
   v
 StreamChunk = (token_str, UsageData | None)
@@ -154,11 +141,38 @@ StreamChunk = (token_str, UsageData | None)
 _tracked_stream() collects UsageData on final chunk
   |
   v
-calculate_cost(model, prompt_tokens, completion_tokens)
+calculate_cost(model, prompt_tokens, completion_tokens) -> always 0.0
   |
   v
 AnalyticsDB.log_request() -- fire-and-forget
 ```
+
+Cost always returns `0.0` because Manifest handles billing internally. Usage data (prompt/completion tokens) is still tracked for analytics.
+
+## Web Playground
+
+A built-in chat UI accessible at `GET /playground`. No auth required to load the page.
+
+```
+GET /playground
+  -> Serves static/playground/index.html via FileResponse
+
+/static/ mount
+  -> FastAPI StaticFiles serving static/ directory
+  -> playground.js, playground.css, and CDN dependencies loaded by index.html
+```
+
+### Features
+
+- API key auth via login overlay (key entered client-side, sent as Bearer token)
+- Model selector populated from `GET /v1/models`
+- SSE streaming chat with markdown rendering (marked.js) and code highlighting (highlight.js)
+- Generation params: temperature, max_tokens, top_p
+- Conversation persistence via browser localStorage
+
+### Tech Stack
+
+Static HTML + vanilla JS (no build step). CDN dependencies: marked.js, highlight.js, DOMPurify. Served by FastAPI `StaticFiles` mount.
 
 ## Authentication Flow
 
@@ -176,7 +190,7 @@ Request Header: Authorization: Bearer <token>
     endpoint handler     {"detail": "Invalid API key"}
 ```
 
-Note: `GET /health` does not require authentication. All other endpoints require auth.
+Note: `GET /health` and `GET /playground` do not require authentication. All `/v1/` API endpoints require auth.
 
 ## Analytics Architecture
 
@@ -224,17 +238,13 @@ GET /v1/analytics/requests?since=&limit=50&offset=0
                     |
            +--------+--------+----------+-----------+
            |        |        |          |           |
-    Per-provider  Legacy   Gateway   Analytics   Base URL
-    API keys     fallback  auth      DB path     override
+    Manifest API  Legacy   Gateway   Analytics   Base URL
+    key          fallback  auth      DB path     override
     |            |         |         |           |
-    openai_api_key  llm_api_key  app_api_key  analytics_db_path  llm_base_url
-    deepseek_api_key
-    moonshot_api_key
-    bytedance_api_key
-    glm_api_key
+    manifest_api_key  llm_api_key  app_api_key  analytics_db_path  llm_base_url
 ```
 
-`get_api_key(provider)` returns provider-specific key, falls back to `llm_api_key`.
+`get_api_key("manifest")` returns `manifest_api_key` with `llm_api_key` fallback.
 
 ## Lifespan Management
 

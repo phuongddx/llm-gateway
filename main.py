@@ -4,6 +4,8 @@ from pathlib import Path
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
@@ -59,3 +61,11 @@ from routes.analytics import router as analytics_router, analytics_router as ana
 app.include_router(chat_router)
 app.include_router(analytics_router)
 app.include_router(analytics_api_router)
+
+
+@app.get("/playground")
+async def playground():
+    return FileResponse("static/playground/index.html")
+
+
+app.mount("/static", StaticFiles(directory="static"), name="static")

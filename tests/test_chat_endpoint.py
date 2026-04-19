@@ -29,25 +29,34 @@ async def test_chat_with_model(client, auth_headers):
         )
 
     assert response.status_code == 200
-    # SSE response body should contain token data
     body = response.text
     assert "Hello" in body
     assert "[DONE]" in body
 
 
 @pytest.mark.asyncio
-async def test_chat_unknown_model_returns_400(client, auth_headers):
-    """Request with unknown model returns 400 with available models list."""
-    response = await client.post(
-        "/v1/chat/completions",
-        json={
-            "model": "nonexistent-model",
-            "messages": [{"role": "user", "content": "Hi"}],
-        },
-        headers=auth_headers,
-    )
-    assert response.status_code == 400
-    assert "Unknown model" in response.json()["detail"]
+async def test_chat_unknown_model_passes_through(client, auth_headers):
+    """Unknown model passes through to manifest (no 400 error)."""
+    mock_provider_response = AsyncMock()
+
+    async def mock_stream(*args, **kwargs):
+        yield ("Hi", None)
+        yield ("", {"prompt_tokens": 3, "completion_tokens": 1, "total_tokens": 4})
+
+    mock_provider_response.chat_stream = mock_stream
+
+    with patch("routes.chat.create_provider", return_value=mock_provider_response):
+        response = await client.post(
+            "/v1/chat/completions",
+            json={
+                "model": "some-unknown-model",
+                "messages": [{"role": "user", "content": "Hi"}],
+            },
+            headers=auth_headers,
+        )
+
+    assert response.status_code == 200
+    assert "Hi" in response.text
 
 
 @pytest.mark.asyncio
@@ -60,7 +69,6 @@ async def test_chat_without_auth_returns_401(client):
             "messages": [{"role": "user", "content": "Hi"}],
         },
     )
-    # FastAPI returns 422 when required Header(...) is missing
     assert response.status_code in (401, 403, 422)
 
 

@@ -1,24 +1,24 @@
 # LLM Gateway
 
-A FastAPI-based API gateway that routes chat completion requests to multiple LLM providers via model-based routing. Clients specify a model name, and the gateway resolves it to the correct provider. All responses stream via SSE. Request analytics (latency, TTFT, token usage, cost) are logged to SQLite.
+A FastAPI-based API gateway that routes chat completion requests through Manifest (app.manifest.build), providing access to 500+ LLM models via smart routing. Clients specify a model name (or `auto` for intelligent selection). All responses stream via SSE. Request analytics (latency, TTFT, token usage) are logged to SQLite.
 
 ## Features
 
-- **Model-based routing** -- client specifies `model`, gateway resolves to provider via routing table
-- **8 providers** -- OpenAI, DeepSeek, MoonshotAI (Kimi), Gemini, Z.AI (GLM), MiniMax, ByteDance (Doubao)
+- **Manifest provider** -- single API key routes to 500+ models via app.manifest.build
+- **Smart routing** -- `model="auto"` lets Manifest pick the best model automatically
+- **Model passthrough** -- unknown model names are forwarded to Manifest as-is
 - **OpenAI-compatible API** -- standard `/v1/chat/completions` endpoint
 - **Server-Sent Events streaming** -- real-time token delivery with usage metadata
-- **Analytics pipeline** -- SQLite-backed request logging with cost tracking, TTFT, latency
+- **Analytics pipeline** -- SQLite-backed request logging with TTFT, latency tracking
 - **Analytics API** -- summary stats, per-model breakdowns, recent requests
 - **Bearer token authentication** -- simple API key gating
-- **Per-provider API keys** -- dedicated env vars per provider with shared fallback
 
 ## Quick Start
 
 ### Prerequisites
 
 - Python 3.12+
-- API key from at least one supported provider
+- Manifest API key from [app.manifest.build](https://app.manifest.build)
 
 ### Install
 
@@ -37,14 +37,10 @@ cp .env.example .env
 Edit `.env` with your settings:
 
 ```env
-# At least one provider API key
-OPENAI_API_KEY=your-openai-key
-DEEPSEEK_API_KEY=your-deepseek-key
-MOONSHOT_API_KEY=your-moonshot-key
-GLM_API_KEY=your-glm-key
-LLM_API_KEY=your-gemini-or-minimax-key
+# Manifest API key — routes to 500+ models
+MANIFEST_API_KEY=your-manifest-api-key
 
-# Gateway auth
+# Gateway auth — REQUIRED
 APP_API_KEY=your-gateway-secret
 
 # Analytics (optional)
@@ -92,7 +88,7 @@ curl -N -X POST http://localhost:8000/v1/chat/completions \
   -H "Authorization: Bearer changeme" \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "deepseek-chat",
+    "model": "auto",
     "messages": [{"role": "user", "content": "Hello"}],
     "system_prompt": "You are a helpful assistant"
   }'
@@ -176,19 +172,12 @@ All settings via `.env` file or environment variables.
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `APP_API_KEY` | Yes | `changeme` | Gateway authentication token |
+| `APP_API_KEY` | Yes | -- | Gateway authentication token |
+| `MANIFEST_API_KEY` | Yes | -- | Manifest API key for 500+ models |
+| `LLM_API_KEY` | No | -- | Fallback if `MANIFEST_API_KEY` not set |
 | `ANALYTICS_DB_PATH` | No | `data/analytics.db` | SQLite database path for analytics |
-
-### Provider API Keys
-
-| Variable | Providers |
-|----------|-----------|
-| `OPENAI_API_KEY` | OpenAI (gpt-4o, gpt-4o-mini, o3) |
-| `DEEPSEEK_API_KEY` | DeepSeek (deepseek-chat, deepseek-reasoner) |
-| `MOONSHOT_API_KEY` | MoonshotAI (kimi-k2.5, moonshot-v1-128k) |
-| `BYTEDANCE_API_KEY` | ByteDance Doubao (doubao-pro-*) |
-| `GLM_API_KEY` | Z.AI GLM (glm-5.1, glm-4.7-flash, etc.) |
-| `LLM_API_KEY` | Fallback key for Gemini, MiniMax (and any provider without a dedicated key) |
+| `CORS_ORIGINS` | No | -- | Comma-separated allowed origins |
+| `RATE_LIMIT` | No | `60/minute` | Rate limit per client IP |
 
 ### Legacy (Single Provider Mode)
 
@@ -198,39 +187,53 @@ All settings via `.env` file or environment variables.
 | `LLM_MODEL` | No | `gemini-2.0-flash-lite` | Override model name |
 | `LLM_BASE_URL` | No | Provider default | Override provider base URL |
 
-## Supported Providers
+## Supported Models
 
-| Provider | Default Model | Base URL | SDK |
-|----------|---------------|----------|-----|
-| OpenAI | `gpt-4o` | `api.openai.com/v1` | `openai` |
-| DeepSeek | `deepseek-chat` | `api.deepseek.com` | `openai` (compatible) |
-| MoonshotAI | `kimi-k2.5` | `api.moonshot.cn/v1` | `openai` (compatible) |
-| Google Gemini | `gemini-2.0-flash-lite` | N/A (native SDK) | `google-genai` |
-| Z.AI GLM | `glm-4.7-flash` | `api.z.ai/api/paas/v4` | `openai` (compatible) |
-| MiniMax | `MiniMax-Text-01` | `api.minimax.chat/v1` | `openai` (compatible) |
-| ByteDance Doubao | *(endpoint ID)* | `ark.cn-beijing.volces.com/api/v3` | `openai` (compatible) |
+All models route through Manifest (app.manifest.build). Use `model="auto"` for smart routing, or specify any model name directly.
+
+| Alias | Routed Model | Family |
+|-------|-------------|--------|
+| `auto` | Manifest smart routing | Any |
+| `gpt-5.4` | `gpt-5.4` | OpenAI |
+| `gpt-4o` | `gpt-4o` | OpenAI |
+| `gpt-4o-mini` | `gpt-4o-mini` | OpenAI |
+| `o3` | `o3` | OpenAI |
+| `claude-sonnet` | `claude-sonnet-4-6` | Anthropic |
+| `claude-haiku` | `claude-haiku-4-5-20251001` | Anthropic |
+| `gemini-2.5-flash` | `gemini-2.5-flash` | Google |
+| `gemini-2.0-flash` | `gemini-2.0-flash` | Google |
+| `gemini-2.0-flash-lite` | `gemini-2.0-flash-lite` | Google |
+| `deepseek-chat` | `deepseek-chat` | DeepSeek |
+| `deepseek-reasoner` | `deepseek-reasoner` | DeepSeek |
+| `kimi-k2.5` | `kimi-k2.5` | MoonshotAI |
+| `glm-5.1` | `glm-5.1` | Z.AI |
+| `MiniMax-Text-01` | `MiniMax-Text-01` | MiniMax |
+| `doubao-pro-32k` | `doubao-pro-32k` | ByteDance |
+
+Unknown model names pass through to Manifest as-is, giving access to the full 500+ model catalog.
 
 ## Architecture
 
 ```
-Client --> POST /v1/chat/completions {model: "deepseek-chat", messages: [...]}
+Client --> POST /v1/chat/completions {model: "auto", messages: [...]}
               |
               v
         Bearer Auth Check
               |
               v
-        resolve_provider("deepseek-chat") --> ("deepseek", "deepseek-chat")
+        resolve_provider("auto") --> ("manifest", "auto")
               |
               v
-        create_provider("deepseek", "deepseek-chat") --> DeepSeekProvider
+        create_provider("manifest", "auto") --> ManifestProvider
               |
               v
         _tracked_stream() --> SSE Response + analytics logging
 ```
 
-- **Model routing**: `MODEL_ROUTING` dict maps model names to `(provider, model_id)` tuples
-- **Provider hierarchy**: `LLMProvider` ABC, `GeminiProvider` (native SDK), `OpenAICompatibleProvider` base (6 providers)
-- **Analytics**: SQLite with aiosqlite, tracks TTFT/latency/tokens/cost per request
+- **Model routing**: `MODEL_ROUTING` dict maps model aliases to `(provider, model_id)` tuples; all point to `"manifest"`, unknown models pass through
+- **Single provider**: `ManifestProvider` extends `OpenAICompatibleProvider`, connects to `app.manifest.build/v1`
+- **Cost tracking**: Returns `0.0` -- Manifest handles billing internally
+- **Analytics**: SQLite with aiosqlite, tracks TTFT/latency/tokens per request
 - **Lifespan**: FastAPI lifespan initializes analytics DB on startup, closes on shutdown
 
 See [docs/system-architecture.md](docs/system-architecture.md) for details.
