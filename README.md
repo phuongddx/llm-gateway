@@ -253,4 +253,4 @@ make clean            # Remove __pycache__ and build artifacts
 
 ## License
 
-Private repository. All rights reserved.
+All rights reserved. The source is public for reading — reach out before reusing it.
