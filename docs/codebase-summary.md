@@ -64,7 +64,7 @@ Analytics REST endpoints + model listing.
 
 Maps model names to `(provider, actual_model_id)`. Non-GLM routes go through Manifest; GLM routes go to the z.ai coding endpoint when an effective key (`ZAI_CODING_API_KEY` or `LLM_API_KEY` fallback) is set, otherwise they degrade to Manifest.
 
-`MODEL_ROUTING` dict contains 27 entries:
+`MODEL_ROUTING` dict contains 29 entries:
 - Auto: auto (smart routing) -- Manifest
 - OpenAI/Anthropic/DeepSeek/MoonshotAI/Google/MiniMax/ByteDance aliases -- all `("manifest", <model_id>)`
 - Z.AI GLM: canonical `glm-5.3` and `glm-5.3-flash` plus 9 aliases (e.g. `glm-5.1`, `glm-5-turbo`, `glm-4.7`, `glm-4.7-flash`) canonicalized to one of the two canonical ids -- `("zai-coding", <canonical_id>)`

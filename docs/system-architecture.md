@@ -216,11 +216,11 @@ _tracked_stream()
   |-- usage_data collected from final StreamChunk
   |-- latency_ms = now - start_time
   |-- ttft_ms = first_token_time - start_time
-  |-- cost_usd = calculate_cost(model, tokens)
-  |
-  v
   |-- cost_usd = calculate_cost(model, tokens)   (always 0.0)
   |-- credits_used = estimate_credits(provider, model, usage, now)
+  |
+  v
+asyncio.create_task(db.log_request({...}))  # fire-and-forget
   |
   v
 SQLite (request_logs table)
