@@ -3,6 +3,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
 from analytics.routing import MODEL_ROUTING
+from config import settings
 from routes.chat import verify_auth
 
 # Combine all endpoints under one router
@@ -67,3 +68,20 @@ async def get_requests(
     """Paginated list of recent requests."""
     db = _get_db(request)
     return await db.get_recent(limit, offset, since)
+
+
+@analytics_router.get("/credits")
+async def get_credits(request: Request, _auth=Depends(verify_auth)):
+    """Estimated z.ai coding-plan credit burn vs configured quota."""
+    db = _get_db(request)
+    summary = await db.get_credits_summary()
+    return {
+        "window_5h": {"credits_used": summary["credits_5h"], "quota": settings.zai_credits_5h},
+        "window_7d_rolling": {
+            "credits_used": summary["credits_7d"],
+            "quota": settings.zai_credits_week,
+            "note": "rolling estimate; z.ai weekly reset anchored to subscription date",
+        },
+        "by_model": summary["by_model"],
+        "off_peak_share": summary["off_peak_share"],
+    }
