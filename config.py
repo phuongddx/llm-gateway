@@ -8,6 +8,13 @@ class Settings(BaseSettings):
     # Manifest provider
     manifest_api_key: str = ""
 
+    # Z.AI GLM Coding Plan provider (endpoint: https://api.z.ai/api/coding/paas/v4)
+    zai_coding_api_key: str = ""
+
+    # GLM Coding Plan credit quotas (defaults = Max tier; adjust per tier)
+    zai_credits_5h: int = 28000
+    zai_credits_week: int = 140000
+
     # Gateway auth — MUST be set via APP_API_KEY env var
     app_api_key: str = ""
 
@@ -23,9 +30,11 @@ class Settings(BaseSettings):
     model_config = {"env_file": ".env", "extra": "ignore"}
 
     def get_api_key(self, provider: str) -> str:
-        """Return API key for provider. Manifest uses dedicated key with llm_api_key fallback."""
+        """Return API key for provider. Dedicated key with llm_api_key fallback."""
         if provider == "manifest":
             return self.manifest_api_key or self.llm_api_key
+        if provider == "zai-coding":
+            return self.zai_coding_api_key or self.llm_api_key
         return self.llm_api_key
 
 
