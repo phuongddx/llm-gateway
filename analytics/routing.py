@@ -6,18 +6,6 @@ from config import settings
 GLM_CANONICAL = "glm-5.3"
 GLM_CANONICAL_FLASH = "glm-5.3-flash"
 
-# Flash-class aliases (speed-tier names) — everything else GLM maps to the strong model
-_GLM_FLASH_ALIASES = frozenset({"glm-4.5-flash", "glm-4.7-flash", "glm-4.7-flashx"})
-
-
-def _canonical_glm(model: str) -> str:
-    """Map a GLM name onto the two models the coding plan serves."""
-    if model in (GLM_CANONICAL, GLM_CANONICAL_FLASH):
-        return model
-    if model in _GLM_FLASH_ALIASES:
-        return GLM_CANONICAL_FLASH
-    return GLM_CANONICAL
-
 
 def _zai_key_present() -> bool:
     """Effective key check so the llm_api_key fallback stays live (spec §2.1)."""
