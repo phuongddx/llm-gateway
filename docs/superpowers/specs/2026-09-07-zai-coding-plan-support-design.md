@@ -91,10 +91,13 @@ Three units, each following existing repo patterns:
      `zai-coding` with the name passed through (z.ai auto-maps or errors
      clearly). All other unknown models stay Manifest-passthrough (current
      behavior).
-   - **Key gate**: when `ZAI_CODING_API_KEY` is unset, every GLM route — table
-     entry or prefix match — resolves to `("manifest", canonical_model)`
-     instead. Behavior with no key is identical to today's Manifest-only
-     gateway; the feature is opt-in via one env var; rollback = unset it.
+   - **Key gate**: when the effective key — `settings.get_api_key("zai-coding")`,
+     i.e. `zai_coding_api_key or llm_api_key` — is empty, every GLM route —
+     table entry or prefix match — resolves to `("manifest", canonical_model)`
+     instead. Gating on the effective key (not the dedicated env var alone)
+     keeps the `llm_api_key` fallback live and consistent with the Manifest
+     pattern. Behavior with no key is identical to today's Manifest-only
+     gateway; the feature is opt-in via env config; rollback = unset it.
    - Non-GLM entries are untouched.
 
 ### 2.2 Config (`config.py`, `.env.example`)
@@ -123,8 +126,10 @@ def estimate_credits(provider: str, model: str, usage: UsageData,
 - Cached tokens read from the final usage chunk's
   `prompt_tokens_details.cached_tokens` when the field is present, else 0
   (conservative overestimate). `OpenAICompatibleProvider` passes it through on
-  the existing `StreamChunk` usage path (extend `UsageData` with
-  `cached_tokens: int = 0`).
+  the existing `StreamChunk` usage path: `UsageData` (a `TypedDict`) gains
+  `cached_tokens: NotRequired[int]` — TypedDict fields cannot carry defaults,
+  so consumers read it with `usage.get("cached_tokens", 0)`; the construction
+  site in `openai_compatible_base.py` is updated in the same change.
 
 ### 2.4 Storage
 
