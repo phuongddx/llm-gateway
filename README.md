@@ -40,6 +40,11 @@ Edit `.env` with your settings:
 # Manifest API key — routes to 500+ models
 MANIFEST_API_KEY=your-manifest-api-key
 
+# Z.AI GLM Coding Plan — routes glm-* models to z.ai; unset keeps GLM on Manifest
+ZAI_CODING_API_KEY=your-zai-coding-api-key
+ZAI_CREDITS_5H=28000
+ZAI_CREDITS_WEEK=140000
+
 # Gateway auth — REQUIRED
 APP_API_KEY=your-gateway-secret
 
@@ -174,7 +179,10 @@ All settings via `.env` file or environment variables.
 |----------|----------|---------|-------------|
 | `APP_API_KEY` | Yes | -- | Gateway authentication token |
 | `MANIFEST_API_KEY` | Yes | -- | Manifest API key for 500+ models |
-| `LLM_API_KEY` | No | -- | Fallback if `MANIFEST_API_KEY` not set |
+| `ZAI_CODING_API_KEY` | No | -- | Z.AI GLM Coding Plan key; routes `glm-*` to the z.ai coding endpoint when set |
+| `ZAI_CREDITS_5H` | No | `28000` | GLM Coding Plan rolling 5-hour credit quota |
+| `ZAI_CREDITS_WEEK` | No | `140000` | GLM Coding Plan weekly credit quota |
+| `LLM_API_KEY` | No | -- | Fallback if `MANIFEST_API_KEY` or `ZAI_CODING_API_KEY` not set |
 | `ANALYTICS_DB_PATH` | No | `data/analytics.db` | SQLite database path for analytics |
 | `CORS_ORIGINS` | No | -- | Comma-separated allowed origins |
 | `RATE_LIMIT` | No | `60/minute` | Rate limit per client IP |
@@ -189,7 +197,7 @@ All settings via `.env` file or environment variables.
 
 ## Supported Models
 
-All models route through Manifest (app.manifest.build). Use `model="auto"` for smart routing, or specify any model name directly.
+All non-GLM models route through Manifest (app.manifest.build). Use `model="auto"` for smart routing, or specify any model name directly. `glm-*` models route to the z.ai GLM Coding Plan (see below).
 
 | Alias | Routed Model | Family |
 |-------|-------------|--------|
@@ -206,11 +214,25 @@ All models route through Manifest (app.manifest.build). Use `model="auto"` for s
 | `deepseek-chat` | `deepseek-chat` | DeepSeek |
 | `deepseek-reasoner` | `deepseek-reasoner` | DeepSeek |
 | `kimi-k2.5` | `kimi-k2.5` | MoonshotAI |
-| `glm-5.1` | `glm-5.1` | Z.AI |
+| `glm-5.1` | `glm-5.3` (z.ai coding) | Z.AI |
 | `MiniMax-Text-01` | `MiniMax-Text-01` | MiniMax |
 | `doubao-pro-32k` | `doubao-pro-32k` | ByteDance |
 
-Unknown model names pass through to Manifest as-is, giving access to the full 500+ model catalog.
+Unknown non-GLM model names pass through to Manifest as-is, giving access to the full 500+ model catalog.
+
+### GLM Coding Plan
+
+With `ZAI_CODING_API_KEY` (or the `LLM_API_KEY` fallback) set, all `glm-*` models route to the
+z.ai coding endpoint (`https://api.z.ai/api/coding/paas/v4`), which serves two canonical models:
+`glm-5.3` and `glm-5.3-flash`. Known aliases are canonicalized before routing (`glm-5.1`,
+`glm-5-turbo`, `glm-4.x` → `glm-5.3`; flash-named aliases → `glm-5.3-flash`); unknown `glm-*`
+names pass through as-is. Without a key, GLM models degrade to Manifest with the canonical ids.
+
+z.ai errors do **not** fall back to Manifest: quota exhaustion (HTTP 429 / error 1113) surfaces
+as `zai-coding quota exhausted — resets within the 5-hour window` and auth failures as
+`zai-coding authentication failed`. Credit usage is estimated per request from token counts
+(50% off-peak outside Mon–Fri 14:00–18:00 UTC+8) and reported by `GET /v1/analytics/credits`
+against the `ZAI_CREDITS_5H` / `ZAI_CREDITS_WEEK` quotas.
 
 ## Architecture
 
@@ -230,8 +252,8 @@ Client --> POST /v1/chat/completions {model: "auto", messages: [...]}
         _tracked_stream() --> SSE Response + analytics logging
 ```
 
-- **Model routing**: `MODEL_ROUTING` dict maps model aliases to `(provider, model_id)` tuples; all point to `"manifest"`, unknown models pass through
-- **Single provider**: `ManifestProvider` extends `OpenAICompatibleProvider`, connects to `app.manifest.build/v1`
+- **Model routing**: `MODEL_ROUTING` dict maps model aliases to `(provider, model_id)` tuples; non-GLM entries point to `"manifest"`, `glm-*` entries to `"zai-coding"` (key-gated — see GLM Coding Plan above)
+- **Providers**: `ManifestProvider` (app.manifest.build/v1) and `ZAICodingProvider` (api.z.ai/api/coding/paas/v4) both extend `OpenAICompatibleProvider`
 - **Cost tracking**: Returns `0.0` -- Manifest handles billing internally
 - **Analytics**: SQLite with aiosqlite, tracks TTFT/latency/tokens per request
 - **Lifespan**: FastAPI lifespan initializes analytics DB on startup, closes on shutdown

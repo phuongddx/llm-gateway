@@ -11,22 +11,22 @@
 +--------+  GET  /v1/analytics/*   | main.py      |
             GET  /playground       | static/      |
                                   +------+-------+
-                                         |
                           resolve_provider(model_name)
                                          |
-                                         v
-                                  +--------------+
-                                  | Manifest     |
-                                  | Provider     |
-                                  | (OpenAI-compat)
-                                  +------+-------+
-                                         |
-                                         v
-                                  app.manifest.build
-                                  (500+ models: OpenAI,
-                                   Anthropic, Google,
-                                   DeepSeek, Moonshot,
-                                   GLM, MiniMax, etc.)
+                    glm-* & z.ai key set | everything else
+                        +----------------+----------------+
+                        v                                 v
+              +------------------+              +------------------+
+              | Z.AI Coding      |              | Manifest         |
+              | Provider         |              | Provider         |
+              | (OpenAI-compat)  |              | (OpenAI-compat)  |
+              +--------+---------+              +--------+---------+
+                       |                                 |
+                       v                                 v
+             api.z.ai/api/coding/paas/v4       app.manifest.build
+             (glm-5.3, glm-5.3-flash)          (500+ models: OpenAI,
+                                               Anthropic, Google,
+                                               DeepSeek, Moonshot, etc.)
 ```
 
 ## Request Flow
@@ -48,8 +48,9 @@
    +-- Rejects with 401 if mismatch
 
 4. Endpoint handler
-   +-- resolve_provider(request.model) -> ("manifest", model_id)
-   +-- create_provider("manifest", model_id) -> ManifestProvider instance
+   +-- resolve_provider(request.model) -> (provider_name, model_id)
+   |     (glm-* -> "zai-coding" when an effective z.ai key is set; else "manifest")
+   +-- create_provider(provider_name, model_id) -> provider instance
    +-- Builds GenParams dict from temperature/max_tokens/top_p if present
    +-- Returns StreamingResponse with _tracked_stream() generator
 
@@ -60,7 +61,9 @@
    +-- Tracks first-token time (TTFT)
    +-- Collects usage data from final chunk
    +-- On error: yields "data: {"error": "..."}\n\n"
-   +-- Logs request to analytics DB (fire-and-forget)
+   |     (zai-coding: quota -> "zai-coding quota exhausted — resets within
+   |      the 5-hour window"; auth -> "zai-coding authentication failed")
+   +-- Logs request to analytics DB (fire-and-forget, incl. credits_used)
    +-- Final: yields "data: [DONE]\n\n"
 ```
 
@@ -79,9 +82,14 @@ LLMProvider (ABC)
   |     base_url and default_model as class attrs
   |
   +-- ManifestProvider
-        base_url = "https://app.manifest.build/v1"
-        default_model = "auto"
-        Smart routing to 500+ models
+  |     base_url = "https://app.manifest.build/v1"
+  |     default_model = "auto"
+  |     Smart routing to 500+ models
+  |
+  +-- ZAICodingProvider
+        base_url = "https://api.z.ai/api/coding/paas/v4"
+        default_model = "glm-5.3"
+        GLM Coding Plan: glm-5.3 / glm-5.3-flash on plan quota
 ```
 
 ### Model Routing
@@ -94,26 +102,29 @@ MODEL_ROUTING = {
     "claude-sonnet":     ("manifest", "claude-sonnet-4-6"),
     "gemini-2.5-flash":  ("manifest", "gemini-2.5-flash"),
     "deepseek-chat":     ("manifest", "deepseek-chat"),
-    "glm-5.1":           ("manifest", "glm-5.1"),
+    "glm-5.1":           ("zai-coding", "glm-5.3"),  # aliases canonicalized
     ...
 }
 
 def resolve_provider(model) -> (provider_name, model_id)
 ```
 
-All routes point to `("manifest", <model_id>)`. Unknown model names pass through to Manifest as-is, giving access to the full 500+ model catalog. Use `model="auto"` for Manifest smart routing.
+Non-GLM routes point to `("manifest", <model_id>)`. GLM routes point to `("zai-coding", <canonical_id>)` — flash-named aliases to `glm-5.3-flash`, other GLM aliases to `glm-5.3` — and degrade to Manifest with canonical ids when no effective z.ai key (`ZAI_CODING_API_KEY` or `LLM_API_KEY`) is set. Unknown `glm-*` names go to zai-coding under the same key gate; all other unknown names pass through to Manifest as-is (full 500+ catalog). Use `model="auto"` for Manifest smart routing.
 
 ### Factory Dispatch
 
 ```python
 def create_provider(provider_name, model, api_key) -> LLMProvider:
     key = api_key or settings.get_api_key(provider_name)
-    # All requests route through Manifest
+    if provider_name == "zai-coding":
+        from providers.zai_coding import ZAICodingProvider
+        return ZAICodingProvider(api_key=key, model=model)
     from providers.manifest import ManifestProvider
     return ManifestProvider(api_key=key, model=model)
 ```
 
-Single provider. API key resolved via `settings.get_api_key("manifest")` which returns `MANIFEST_API_KEY` with `LLM_API_KEY` fallback.
+Two providers. `settings.get_api_key(provider)` returns the provider's dedicated
+key (`MANIFEST_API_KEY` / `ZAI_CODING_API_KEY`) with `LLM_API_KEY` fallback.
 
 ### Data Flow: Message Transformation
 
@@ -142,12 +153,13 @@ _tracked_stream() collects UsageData on final chunk
   |
   v
 calculate_cost(model, prompt_tokens, completion_tokens) -> always 0.0
+estimate_credits(provider, model, usage, ts) -> credits (0.0 unless zai-coding)
   |
   v
 AnalyticsDB.log_request() -- fire-and-forget
 ```
 
-Cost always returns `0.0` because Manifest handles billing internally. Usage data (prompt/completion tokens) is still tracked for analytics.
+Cost always returns `0.0` because Manifest handles billing internally. For `zai-coding` requests, `estimate_credits()` computes plan-credit usage from token counts (cached tokens discounted; 50% off-peak outside Mon-Fri 14:00-18:00 UTC+8). Usage data (prompt/completion tokens) is still tracked for analytics.
 
 ## Web Playground
 
@@ -207,12 +219,13 @@ _tracked_stream()
   |-- cost_usd = calculate_cost(model, tokens)
   |
   v
-asyncio.create_task(db.log_request({...}))  # fire-and-forget
+  |-- cost_usd = calculate_cost(model, tokens)   (always 0.0)
+  |-- credits_used = estimate_credits(provider, model, usage, now)
   |
   v
 SQLite (request_logs table)
   |-- Columns: id, provider, model, prompt_tokens, completion_tokens,
-  |            total_tokens, latency_ms, ttft_ms, cost_usd,
+  |            total_tokens, latency_ms, ttft_ms, cost_usd, credits_used,
   |            status, error_message, created_at
   |-- Indexes: created_at, model, provider
   |-- WAL mode for concurrent reads
@@ -229,22 +242,29 @@ GET /v1/analytics/models?since=&provider=
 
 GET /v1/analytics/requests?since=&limit=50&offset=0
   -> {requests: [...], total, limit, offset}
+
+GET /v1/analytics/credits
+  -> {window_5h: {credits_used, quota},
+      window_7d_rolling: {credits_used, quota, note},
+      by_model: {<model>: {credits_used, requests}}, off_peak_share}
 ```
 
 ## Configuration Layer
 
 ```
 .env file --> pydantic BaseSettings --> settings singleton
-                    |
-           +--------+--------+----------+-----------+
-           |        |        |          |           |
-    Manifest API  Legacy   Gateway   Analytics   Base URL
-    key          fallback  auth      DB path     override
-    |            |         |         |           |
-    manifest_api_key  llm_api_key  app_api_key  analytics_db_path  llm_base_url
+
+  Provider keys : MANIFEST_API_KEY, ZAI_CODING_API_KEY  -> manifest_api_key, zai_coding_api_key
+  Credit quotas : ZAI_CREDITS_5H (28000), ZAI_CREDITS_WEEK (140000)
+  Legacy        : LLM_PROVIDER, LLM_MODEL, LLM_BASE_URL -> llm_provider, llm_model, llm_base_url
+  Fallback      : LLM_API_KEY                           -> llm_api_key
+  Gateway auth  : APP_API_KEY (required)                -> app_api_key
+  Analytics     : ANALYTICS_DB_PATH                     -> analytics_db_path
+  CORS / limits : CORS_ORIGINS, RATE_LIMIT              -> cors_origins, rate_limit
 ```
 
-`get_api_key("manifest")` returns `manifest_api_key` with `llm_api_key` fallback.
+`get_api_key(provider)` returns the provider's dedicated key (`MANIFEST_API_KEY`
+/ `ZAI_CODING_API_KEY`) with `LLM_API_KEY` fallback for each.
 
 ## Lifespan Management
 
