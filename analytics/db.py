@@ -1,9 +1,12 @@
 """SQLite-backed analytics storage with async queries."""
 
 import logging
-from datetime import datetime, timezone
+import sqlite3
+from datetime import datetime, timedelta, timezone
 
 import aiosqlite
+
+from analytics.cost import is_peak
 
 logger = logging.getLogger(__name__)
 
@@ -18,6 +21,7 @@ CREATE TABLE IF NOT EXISTS request_logs (
     latency_ms INTEGER DEFAULT 0,
     ttft_ms INTEGER DEFAULT 0,
     cost_usd REAL DEFAULT 0.0,
+    credits_used REAL NOT NULL DEFAULT 0.0,
     status TEXT NOT NULL DEFAULT 'success',
     error_message TEXT,
     created_at TEXT NOT NULL
@@ -39,6 +43,14 @@ class AnalyticsDB:
         self._db = await aiosqlite.connect(self.db_path)
         await self._db.execute("PRAGMA journal_mode=WAL")
         await self._db.executescript(_SCHEMA)
+        # Migration: older databases predate the credits_used column
+        try:
+            await self._db.execute(
+                "ALTER TABLE request_logs ADD COLUMN credits_used REAL NOT NULL DEFAULT 0.0"
+            )
+        except sqlite3.OperationalError as e:
+            if "duplicate column" not in str(e):
+                raise
         await self._db.commit()
         logger.info("Analytics DB initialized at %s", self.db_path)
 
@@ -55,9 +67,9 @@ class AnalyticsDB:
             await self._db.execute(
                 """INSERT INTO request_logs
                    (id, provider, model, prompt_tokens, completion_tokens,
-                    total_tokens, latency_ms, ttft_ms, cost_usd, status,
-                    error_message, created_at)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    total_tokens, latency_ms, ttft_ms, cost_usd, credits_used,
+                    status, error_message, created_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
                     record["id"],
                     record["provider"],
@@ -68,6 +80,7 @@ class AnalyticsDB:
                     record.get("latency_ms", 0),
                     record.get("ttft_ms", 0),
                     record.get("cost_usd", 0.0),
+                    record.get("credits_used", 0.0),
                     record.get("status", "success"),
                     record.get("error_message"),
                     record.get("created_at", datetime.now(timezone.utc).isoformat()),
@@ -199,3 +212,36 @@ class AnalyticsDB:
                     "created_at": row[11],
                 })
         return {"requests": requests, "total": total, "limit": limit, "offset": offset}
+
+    async def get_credits_summary(self) -> dict:
+        """Rolling 5h/7d zai-coding credit totals (estimates; spec §2.4)."""
+        now = datetime.now(timezone.utc)
+        since_7d = (now - timedelta(days=7)).isoformat()
+        since_5h = (now - timedelta(hours=5)).isoformat()
+        async with self._db.execute(
+            """SELECT model, credits_used, created_at FROM request_logs
+               WHERE provider = 'zai-coding' AND created_at >= ?""",
+            (since_7d,),
+        ) as cursor:
+            rows = await cursor.fetchall()
+
+        credits_5h = 0.0
+        credits_7d = 0.0
+        by_model: dict[str, dict] = {}
+        off_peak = 0
+        for model, credits_used, created_at in rows:
+            credits_7d += credits_used
+            if created_at >= since_5h:
+                credits_5h += credits_used
+            entry = by_model.setdefault(model, {"credits_used": 0.0, "requests": 0})
+            entry["credits_used"] += credits_used
+            entry["requests"] += 1
+            if not is_peak(datetime.fromisoformat(created_at)):
+                off_peak += 1
+
+        return {
+            "credits_5h": round(credits_5h, 4),
+            "credits_7d": round(credits_7d, 4),
+            "by_model": by_model,
+            "off_peak_share": (off_peak / len(rows)) if rows else None,
+        }
