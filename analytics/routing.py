@@ -1,7 +1,32 @@
 """Model routing table — maps model names to (provider, actual_model_id) tuples."""
 
+from config import settings
+
+# Canonical models served by the z.ai GLM Coding Plan endpoint
+GLM_CANONICAL = "glm-5.3"
+GLM_CANONICAL_FLASH = "glm-5.3-flash"
+
+# Flash-class aliases (speed-tier names) — everything else GLM maps to the strong model
+_GLM_FLASH_ALIASES = frozenset({"glm-4.5-flash", "glm-4.7-flash", "glm-4.7-flashx"})
+
+
+def _canonical_glm(model: str) -> str:
+    """Map a GLM name onto the two models the coding plan serves."""
+    if model in (GLM_CANONICAL, GLM_CANONICAL_FLASH):
+        return model
+    if model in _GLM_FLASH_ALIASES:
+        return GLM_CANONICAL_FLASH
+    return GLM_CANONICAL
+
+
+def _zai_key_present() -> bool:
+    """Effective key check so the llm_api_key fallback stays live (spec §2.1)."""
+    return bool(settings.get_api_key("zai-coding"))
+
+
 # model_name -> (provider_name, actual_model_id)
-# All routes go through Manifest. Unknown models are passed through as-is.
+# Non-GLM models route through Manifest. GLM entries carry their canonical z.ai
+# model id; resolve_provider() downgrades them to Manifest when no key is set.
 MODEL_ROUTING: dict[str, tuple[str, str]] = {
     # Auto-routing
     "auto": ("manifest", "auto"),
@@ -24,16 +49,18 @@ MODEL_ROUTING: dict[str, tuple[str, str]] = {
     "kimi-k2.5": ("manifest", "kimi-k2.5"),
     "kimi-k2-thinking": ("manifest", "kimi-k2-thinking"),
     "moonshot-v1-128k": ("manifest", "moonshot-v1-128k"),
-    # Z.AI GLM
-    "glm-5.1": ("manifest", "glm-5.1"),
-    "glm-5-turbo": ("manifest", "glm-5-turbo"),
-    "glm-5": ("manifest", "glm-5"),
-    "glm-4.7": ("manifest", "glm-4.7"),
-    "glm-4.7-flash": ("manifest", "glm-4.7-flash"),
-    "glm-4.7-flashx": ("manifest", "glm-4.7-flashx"),
-    "glm-4.6": ("manifest", "glm-4.6"),
-    "glm-4.5": ("manifest", "glm-4.5"),
-    "glm-4.5-flash": ("manifest", "glm-4.5-flash"),
+    # Z.AI GLM Coding Plan — canonical pair + aliases (flash-named -> flash, rest -> glm-5.3)
+    GLM_CANONICAL: ("zai-coding", GLM_CANONICAL),
+    GLM_CANONICAL_FLASH: ("zai-coding", GLM_CANONICAL_FLASH),
+    "glm-5.1": ("zai-coding", GLM_CANONICAL),
+    "glm-5-turbo": ("zai-coding", GLM_CANONICAL),
+    "glm-5": ("zai-coding", GLM_CANONICAL),
+    "glm-4.7": ("zai-coding", GLM_CANONICAL),
+    "glm-4.7-flash": ("zai-coding", GLM_CANONICAL_FLASH),
+    "glm-4.7-flashx": ("zai-coding", GLM_CANONICAL_FLASH),
+    "glm-4.6": ("zai-coding", GLM_CANONICAL),
+    "glm-4.5": ("zai-coding", GLM_CANONICAL),
+    "glm-4.5-flash": ("zai-coding", GLM_CANONICAL_FLASH),
     # MiniMax
     "MiniMax-Text-01": ("manifest", "MiniMax-Text-01"),
     # ByteDance Doubao
@@ -47,10 +74,20 @@ AVAILABLE_MODELS: list[str] = list(MODEL_ROUTING.keys())
 def resolve_provider(model: str) -> tuple[str, str]:
     """Resolve a model name to (provider_name, actual_model_id).
 
-    Known models use the routing table. Unknown models pass through to Manifest.
+    GLM models go to the z.ai coding endpoint when an effective key is
+    configured; without one they degrade to Manifest with canonical ids.
+    Unknown glm-* names follow the same rule with the name passed through;
+    all other unknown models pass through to Manifest as-is.
     """
     entry = MODEL_ROUTING.get(model)
     if entry:
-        return entry
+        provider_name, model_id = entry
+        if provider_name != "zai-coding" or _zai_key_present():
+            return entry
+        return ("manifest", model_id)
+
+    if model.lower().startswith("glm-") and _zai_key_present():
+        return ("zai-coding", model)
+
     # Passthrough: unknown models go to Manifest as-is
     return ("manifest", model)
