@@ -5,8 +5,6 @@ import pytest
 from analytics.routing import MODEL_ROUTING, resolve_provider
 
 
-
-
 @pytest.fixture
 def with_zai_key(monkeypatch):
     from config import settings
@@ -73,7 +71,6 @@ def test_unknown_glm_prefix_degrades_without_key(without_zai_key):
 
 def test_unknown_non_glm_passthrough_unchanged(without_zai_key):
     assert resolve_provider("nonexistent-model-xyz") == ("manifest", "nonexistent-model-xyz")
-    assert resolve_provider("nonexistent-model-xyz") == resolve_provider("nonexistent-model-xyz")
 
 
 def test_routing_table_has_expected_models():

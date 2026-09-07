@@ -4,8 +4,7 @@ from datetime import datetime, timezone
 
 import pytest
 
-from analytics.cost import calculate_cost
-from analytics.cost import estimate_credits, is_peak
+from analytics.cost import calculate_cost, estimate_credits, is_peak
 
 # 2026-09-07 is a Monday. 07:00 UTC = 15:00 SGT (peak); 23:00 UTC = 07:00 SGT Tue (off-peak).
 PEAK_TS = datetime(2026, 9, 7, 7, 0, tzinfo=timezone.utc)

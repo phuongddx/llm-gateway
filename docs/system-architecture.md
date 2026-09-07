@@ -81,15 +81,15 @@ LLMProvider (ABC)
   |     Uses openai.AsyncOpenAI client
   |     base_url and default_model as class attrs
   |
-  +-- ManifestProvider
-  |     base_url = "https://app.manifest.build/v1"
-  |     default_model = "auto"
-  |     Smart routing to 500+ models
-  |
-  +-- ZAICodingProvider
-        base_url = "https://api.z.ai/api/coding/paas/v4"
-        default_model = "glm-5.3"
-        GLM Coding Plan: glm-5.3 / glm-5.3-flash on plan quota
+  |     +-- ManifestProvider
+  |     |     base_url = "https://app.manifest.build/v1"
+  |     |     default_model = "auto"
+  |     |     Smart routing to 500+ models
+  |     |
+  |     +-- ZAICodingProvider
+  |           base_url = "https://api.z.ai/api/coding/paas/v4"
+  |           default_model = "glm-5.3"
+  |           GLM Coding Plan: glm-5.3 / glm-5.3-flash on plan quota
 ```
 
 ### Model Routing

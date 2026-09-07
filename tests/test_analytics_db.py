@@ -5,6 +5,7 @@ from datetime import datetime, timedelta, timezone
 import pytest
 import pytest_asyncio
 
+from analytics.cost import is_peak
 from analytics.db import AnalyticsDB
 
 
@@ -197,6 +198,14 @@ async def test_credits_summary_excludes_manifest_rows(db):
 @pytest.mark.asyncio
 async def test_credits_summary_off_peak_share_and_empty(db):
     assert (await db.get_credits_summary())["off_peak_share"] is None
+
+
+@pytest.mark.asyncio
+async def test_credits_summary_off_peak_share_single_row(db):
+    await db.log_request(_credit_record(credits=10))
+    summary = await db.get_credits_summary()
+    expected = 0.0 if is_peak(datetime.now(timezone.utc)) else 1.0
+    assert summary["off_peak_share"] == expected
 
 
 @pytest.mark.asyncio
