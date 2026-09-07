@@ -447,7 +447,7 @@ def resolve_provider(model: str) -> tuple[str, str]:
 - [ ] **Step 4: Run tests to verify they pass**
 
 Run: `.venv/bin/python -m pytest tests/test_routing.py -v`
-Expected: 11 PASS.
+Expected: 10 PASS.
 
 - [ ] **Step 5: Run the full suite for regressions**
 
