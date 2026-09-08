@@ -271,6 +271,35 @@ Client --> POST /v1/chat/completions {model: "auto", messages: [...]}
 
 See [docs/system-architecture.md](docs/system-architecture.md) for details.
 
+## Deployment (Docker)
+
+### Configure
+
+```bash
+cp .env.example .env
+```
+
+Edit `.env` — `APP_API_KEY` is the one required variable. Compose applies variable
+interpolation to unquoted/double-quoted `.env` values; single-quote any value containing `$`.
+
+### Run
+
+```bash
+docker compose up -d --build
+```
+
+Gateway starts at `http://localhost:8000`.
+
+```bash
+make docker-build   # Build the image
+make docker-up      # Build (if needed) and start the container
+make docker-down    # Stop the container
+```
+
+The analytics database persists across container recreation on the `gateway-data` named
+volume — only `docker compose down -v` destroys it. The container runs a single `uvicorn`
+process by design (no worker flags, no compose replicas).
+
 ## Development
 
 ```bash
