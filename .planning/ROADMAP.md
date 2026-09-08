@@ -19,7 +19,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 2: Analytics Retention & Storage Lifecycle** - Stop unbounded `request_logs` growth with a configurable, automatically enforced retention policy (completed 2026-09-08)
 - [x] **Phase 3: Containerized Deployment & CI** - Multi-stage non-root Docker image, single-container Compose deployment, GitHub Actions pipeline (completed 2026-09-08)
 - [x] **Phase 4: Observability & Resilience** - Prometheus metrics, per-key rate limiting, same-provider-only transient retry; liveness vs readiness (completed 2026-09-08)
-- [ ] **Phase 5: Routing Decision & Documentation Refresh** - Resolve the `model="auto"` deprecation decision; refresh the four stale docs to shipped reality
+- [x] **Phase 5: Routing Decision & Documentation Refresh** - Resolve the `model="auto"` deprecation decision; refresh the four stale docs to shipped reality (completed 2026-09-08)
 - [ ] **Phase 6: Stress-Support Chatbot MVP (Optional)** - Future direction on top of the gateway; DO NOT START until preconditions are met
 
 ## Phase Details
@@ -164,5 +164,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 (optional)
 | 2. Analytics Retention & Storage Lifecycle | 3/3 | Complete    | 2026-09-08 |
 | 3. Containerized Deployment & CI | 2/2 | Complete    | 2026-09-08 |
 | 4. Observability & Resilience | 4/4 | Complete    | 2026-09-08 |
-| 5. Routing Decision & Documentation Refresh | 3/3 | In Progress|  |
+| 5. Routing Decision & Documentation Refresh | 3/3 | Complete    | 2026-09-08 |
 | 6. Stress-Support Chatbot MVP (Optional) | 0/? | Deferred (preconditions unmet) | - |
