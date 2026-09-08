@@ -51,7 +51,7 @@ Derived from ingest open items: production-readiness backlog, analytics retentio
 
 - [ ] **RELI-01**: Operator starting the gateway without `APP_API_KEY` gets an immediate, actionable startup abort naming the missing variable — never a cryptic request-time SDK error; starting with no effective z.ai key logs an explicit notice (no abort) and GLM routes degrade to Manifest per the key-gate, preserving opt-in/rollback-by-unset semantics
 - [ ] **RELI-02**: Under concurrent multi-stream load, every client receives its full token stream and every completed request appears exactly once in `request_logs`; pending analytics writes stay bounded (capped queue with graceful handling) even when SQLite writes lag
-- [ ] **RELI-03**: SSE error frames carry an OpenAI-style error object (message/type) while z.ai quota exhaustion and authentication failure remain distinctly identifiable; internal exception text never reaches clients
+- [x] **RELI-03**: SSE error frames carry an OpenAI-style error object (message/type) while z.ai quota exhaustion and authentication failure remain distinctly identifiable; internal exception text never reaches clients
 
 ### Analytics Lifecycle (Phase 2)
 
@@ -118,8 +118,8 @@ v1 (active) requirements → phases. Baseline and Historical sections are intent
 | Requirement | Phase | Status |
 |-------------|-------|--------|
 | RELI-01 | Phase 1 | Pending |
-| RELI-02 | Phase 1 | Pending |
-| RELI-03 | Phase 1 | Pending |
+| RELI-02 | Phase 1 | In Progress |
+| RELI-03 | Phase 1 | Complete |
 | ANLT-01 | Phase 2 | Pending |
 | ANLT-02 | Phase 2 | Pending |
 | DEPL-01 | Phase 3 | Pending |
@@ -134,6 +134,7 @@ v1 (active) requirements → phases. Baseline and Historical sections are intent
 | SCB-01 | Phase 6 (optional, v2-gated) | Deferred |
 
 **Coverage:**
+
 - v1 requirements: 14 total · mapped to phases: 14 · unmapped: 0 ✓
 - Ingested PRD requirements: 28 total · 20 Baseline (implemented — not routed) · 8 Historical/Superseded (not routed)
 - Optional Phase 6 carries v2 item SCB-01 and does not count toward v1 coverage
