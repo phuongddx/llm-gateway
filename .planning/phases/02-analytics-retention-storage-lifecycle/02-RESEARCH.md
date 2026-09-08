@@ -449,14 +449,16 @@ await db.log_request({**_record(3), "created_at": now.isoformat()})
 
 **If this table is empty:** n/a — three low-risk placement/scope recommendations flagged for planner visibility; no technical unknowns remain.
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Purge observability surface** — log line only (`logger.info` per purge with deleted count) vs also exposing `writer.purges_run`/`last_purged` attributes.
    - What we know: tests benefit from the attributes (deterministic scheduling asserts without log parsing); Phase 4 (OBSV-01) will add Prometheus metrics later.
    - What's unclear: whether the user wants any operator-visible surface beyond logs this phase.
    - Recommendation: attributes + info log now (cheap, test-enabling); metrics deferred to Phase 4 per the Phase-1 precedent (drop-counter deferred to OBSV-01).
+   - RESOLVED: purges_run/last_purged public attributes + count-only info log adopted (02-01 Task 1: writer ctor observables + the purge log line in purge_expired); Prometheus metrics deferred to Phase 4 (OBSV-01) per the Phase-1 precedent.
 2. **Post-purge `wal_checkpoint(PASSIVE)` inclusion** — verified non-blocking (busy=0), keeps `-wal` bounded (Pitfall 5).
    - Recommendation: include; strictly additive to the locked "WAL intact" requirement.
+   - RESOLVED: PASSIVE wal_checkpoint included after each purge pass (02-01 Task 1: purge_expired tail, after the guarded incremental_vacuum loop — Pitfall 5 mitigation, verified busy=0).
 
 ## Environment Availability
 
