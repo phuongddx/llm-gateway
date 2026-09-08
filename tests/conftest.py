@@ -6,6 +6,7 @@ from httpx import ASGITransport, AsyncClient
 
 from analytics.db import AnalyticsDB
 from analytics.writer import AnalyticsWriter
+from config import settings
 
 
 @pytest.fixture
@@ -47,9 +48,13 @@ async def analytics_retention_writer(analytics_db):
 
 
 @pytest_asyncio.fixture
-async def client(analytics_db, analytics_writer):
+async def client(analytics_db, analytics_writer, monkeypatch):
     """Async test client with analytics DB + writer injected."""
     from main import app
+
+    # Pin app_api_key so auth_headers' "Bearer changeme" matches regardless of
+    # ambient .env state (no .env exists in CI -- default is "").
+    monkeypatch.setattr(settings, "app_api_key", "changeme")
 
     # Override app.state handles with test instances (ASGITransport never runs the lifespan)
     app.state.analytics_db = analytics_db
