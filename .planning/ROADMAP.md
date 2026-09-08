@@ -105,7 +105,20 @@ Plans:
   3. Transient provider errors (network timeouts, 5xx) are retried with backoff against the same provider only; z.ai quota (429/1113) and auth (401/403) failures are never retried and never rerouted to Manifest (locked ZAI-3); after exhausted retries the client sees the provider-distinct error
   4. Health endpoints distinguish liveness from readiness — readiness reports the analytics DB as initialized before the container reports ready (feeds the Phase 3 healthcheck)
 
-**Plans**: TBD
+**Plans**: 0/4 plans executed
+Plans:
+**Wave 1**
+
+- [ ] 04-01-PLAN.md — tracer: /metrics + /health/live + /health/ready wired end-to-end, Dockerfile/Makefile healthcheck repoint (OBSV-01)
+- [ ] 04-02-PLAN.md — tracer: max_retries=0 + tenacity AsyncRetrying wrap around the pre-stream create() call, same-provider-only allow-list retry (OBSV-03)
+
+**Wave 2** *(blocked on 04-01 — shared routes/chat.py)*
+
+- [ ] 04-03-PLAN.md — tracer: RATE_LIMIT_PER_KEY config + extract_bearer_key + stacked per-key limiter decorator (OBSV-02)
+
+**Wave 3** *(blocked on Wave 1 + Wave 2)*
+
+- [ ] 04-04-PLAN.md — optional Prometheus Compose profile + README docs refresh (OBSV-01)
 
 ### Phase 5: Routing Decision & Documentation Refresh
 
