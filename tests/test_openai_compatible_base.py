@@ -2,10 +2,11 @@
 tenacity-driven same-provider retry behavior (OBSV-03)."""
 
 from types import SimpleNamespace
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, patch
 
 import httpx
 import pytest
+import tenacity
 from openai import APIConnectionError, InternalServerError
 
 from providers.openai_compatible_base import OpenAICompatibleProvider
@@ -97,7 +98,8 @@ async def test_retry_succeeds_on_third_attempt_after_transient_errors():
     provider.client = SimpleNamespace(
         chat=SimpleNamespace(completions=SimpleNamespace(create=create_mock))
     )
-    collected = [c async for c in provider.chat_stream([{"role": "user", "content": "x"}], "")]
+    with patch("asyncio.sleep", new=AsyncMock(return_value=None)):
+        collected = [c async for c in provider.chat_stream([{"role": "user", "content": "x"}], "")]
     assert collected == [("ok", None)]
     assert create_mock.await_count == 3
 
@@ -108,3 +110,101 @@ def test_client_constructed_with_max_retries_zero():
     before tenacity's allow-list predicate ever sees it (ZAI-3)."""
     provider = OpenAICompatibleProvider(api_key="test", model="glm-5.3")
     assert provider.client.max_retries == 0
+
+
+@pytest.mark.asyncio
+async def test_quota_1113_shaped_exception_is_never_retried():
+    """A z.ai '1113' balance-exhausted-shaped exception (status_code=402,
+    message containing '1113') must not be retried at all — the allow-list
+    excludes it by omission (it is not one of the three allow-listed types),
+    not by matching its class name or status code."""
+
+    class BalanceError(Exception):
+        status_code = 402
+
+    provider = OpenAICompatibleProvider(api_key="test", model="glm-5.3")
+    create_mock = AsyncMock(side_effect=BalanceError("1113 Insufficient Balance"))
+    provider.client = SimpleNamespace(
+        chat=SimpleNamespace(completions=SimpleNamespace(create=create_mock))
+    )
+    with pytest.raises(BalanceError):
+        async for _ in provider.chat_stream([{"role": "user", "content": "x"}], ""):
+            pass
+    assert create_mock.await_count == 1
+
+
+@pytest.mark.asyncio
+async def test_auth_failure_shaped_exception_is_never_retried():
+    """A 401/403-shaped auth failure must not be retried — same omission
+    reasoning as the quota case."""
+
+    class AuthError(Exception):
+        status_code = 401
+
+    provider = OpenAICompatibleProvider(api_key="test", model="glm-5.3")
+    create_mock = AsyncMock(side_effect=AuthError("invalid api key"))
+    provider.client = SimpleNamespace(
+        chat=SimpleNamespace(completions=SimpleNamespace(create=create_mock))
+    )
+    with pytest.raises(AuthError):
+        async for _ in provider.chat_stream([{"role": "user", "content": "x"}], ""):
+            pass
+    assert create_mock.await_count == 1
+
+
+@pytest.mark.asyncio
+async def test_exhausted_transient_failure_reraises_original_exception():
+    """When all 3 attempts raise APIConnectionError, the exception from the
+    final attempt is re-raised as-is — a real APIConnectionError instance
+    (not a tenacity RetryError wrapper) — preserving attribute access (e.g.
+    .request) for routes/chat.py's unchanged error mapping. asyncio.sleep is
+    patched so the 2 backoff waits don't slow the suite down."""
+
+    provider = OpenAICompatibleProvider(api_key="test", model="glm-5.3")
+    final_exception = _api_connection_error()
+    create_mock = AsyncMock(
+        side_effect=[_api_connection_error(), _api_connection_error(), final_exception]
+    )
+    provider.client = SimpleNamespace(
+        chat=SimpleNamespace(completions=SimpleNamespace(create=create_mock))
+    )
+    with patch("asyncio.sleep", new=AsyncMock(return_value=None)):
+        with pytest.raises(APIConnectionError) as exc_info:
+            async for _ in provider.chat_stream([{"role": "user", "content": "x"}], ""):
+                pass
+    assert exc_info.value is final_exception
+    assert not isinstance(exc_info.value, tenacity.RetryError)
+    assert exc_info.value.request is final_exception.request
+    assert create_mock.await_count == 3
+
+
+@pytest.mark.asyncio
+async def test_before_sleep_logging_never_includes_message_content():
+    """The before_sleep retry-logging hook must only log base_url, attempt
+    number, and exception class name — never the messages list or any of
+    its string content (OBSV-03 retry-logging prohibition)."""
+    provider = OpenAICompatibleProvider(api_key="test", model="glm-5.3")
+    provider.base_url = "https://example.com/v1"
+    create_mock = AsyncMock(
+        side_effect=[_api_connection_error(), _aiter([_chunk(content="ok")])]
+    )
+    provider.client = SimpleNamespace(
+        chat=SimpleNamespace(completions=SimpleNamespace(create=create_mock))
+    )
+    secret_content = "super-secret-prompt-xyz"
+    with patch("asyncio.sleep", new=AsyncMock(return_value=None)), \
+         patch("providers.openai_compatible_base.logger") as mock_logger:
+        collected = [
+            c
+            async for c in provider.chat_stream(
+                [{"role": "user", "content": secret_content}], ""
+            )
+        ]
+    assert collected == [("ok", None)]
+    assert mock_logger.warning.call_count == 1
+    logged_args = mock_logger.warning.call_args.args
+    logged_str = " ".join(str(a) for a in logged_args)
+    assert secret_content not in logged_str
+    assert "messages" not in logged_str.lower()
+    assert "https://example.com/v1" in logged_str
+    assert "APIConnectionError" in logged_str
