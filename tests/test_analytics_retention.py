@@ -548,6 +548,8 @@ async def test_burst_streams_unblocked_during_purge(
     )
     ticking.start()
     app.state.analytics_writer = ticking
+    responses = []  # bound pre-try (IN-02): the post-finally asserts must
+    # never hit an unbound name if the gather's error path is ever widened
     try:
         with patch(
             "routes.chat.create_provider", side_effect=[_provider_for(i) for i in range(20)]
