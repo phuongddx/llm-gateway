@@ -32,7 +32,11 @@ Decimal phases appear between their surrounding integers in numeric order.
   2. Under a concurrent multi-stream burst (simulated coding-day traffic), every client receives its full token stream and every completed request appears exactly once in `request_logs`; pending analytics writes stay bounded (capped queue with graceful lag handling) even when SQLite writes fall behind
   3. SSE error frames carry an OpenAI-style error object (message/type fields) while z.ai quota exhaustion and authentication failure remain distinctly identifiable messages; no internal exception text reaches clients
   4. A z.ai quota event (HTTP 429 or error code 1113) surfaces to the client within one round-trip as the dedicated quota message — no hang, no retry loop, no Manifest reroute (locked ZAI-3)
-**Plans**: TBD
+**Plans**: 3 plans
+Plans:
+- [ ] 01-PLAN-01-tracer-bounded-writer-error-frames.md — tracer: bounded AnalyticsWriter write path + OpenAI-style SSE error frames + playground renderer (RELI-02, RELI-03)
+- [ ] 01-PLAN-02-startup-validation.md — RATE_LIMIT model_validator + lifespan aborts and no-key notices (RELI-01)
+- [ ] 01-PLAN-03-concurrency-proof.md — 20-stream burst + queue unit tests proving exactly-once bounded analytics writes (RELI-02)
 
 ### Phase 2: Analytics Retention & Storage Lifecycle
 **Goal**: `request_logs` stops growing unbounded — long-running deployments keep analytics accurate, fast, and disk-bounded
