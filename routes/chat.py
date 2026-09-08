@@ -15,7 +15,7 @@ from analytics.cost import calculate_cost, estimate_credits
 from analytics.routing import resolve_provider
 from config import settings
 from providers import create_provider
-from rate_limiter import limiter
+from rate_limiter import extract_bearer_key, limiter
 
 logger = logging.getLogger(__name__)
 
@@ -41,7 +41,16 @@ def verify_auth(authorization: str = Header(...)):
 
 
 @router.post("/v1/chat/completions")
-@limiter.limit(settings.rate_limit)
+@limiter.limit(settings.rate_limit)  # existing, per-IP
+@limiter.limit(lambda: settings.rate_limit_per_key, key_func=extract_bearer_key)  # NEW, per-key
+# NOTE: rate_limit_per_key is passed as a zero-arg callable, not a plain string.
+# slowapi parses a plain-string limit_value once, at decoration time (module
+# import) — a bare `settings.rate_limit_per_key` would freeze in whatever
+# value existed at import, making RATE_LIMIT_PER_KEY effectively untestable
+# via monkeypatch and immune to any future runtime reconfiguration. A
+# callable is slowapi's documented mechanism for a dynamically-evaluated
+# limit (StrOrCallableStr) — it re-reads settings.rate_limit_per_key on
+# every request instead.
 async def chat(request: Request, body: ChatRequest, _auth=Depends(verify_auth)):  # noqa: B008 -- FastAPI DI convention
     # Resolve model name to (provider, actual_model_id) — passthrough for unknown models
     provider_name, model_id = resolve_provider(body.model)

@@ -25,6 +25,7 @@ class Settings(BaseSettings):
 
     # Rate limiting
     rate_limit: str = "60/minute"  # Max requests per window per client
+    rate_limit_per_key: str = "60/minute"  # Max requests per window per Bearer token
 
     # Analytics
     analytics_db_path: str = "data/analytics.db"
@@ -49,6 +50,20 @@ class Settings(BaseSettings):
             ) from e
         if not parsed:
             raise ValueError(f"RATE_LIMIT parsed to zero limits: {self.rate_limit!r}")
+        return self
+
+    @model_validator(mode="after")
+    def _validate_rate_limit_per_key(self) -> "Settings":
+        """Fail fast on malformed RATE_LIMIT_PER_KEY — same reasoning as _validate_rate_limit."""
+        try:
+            parsed = list(parse_many(self.rate_limit_per_key))
+        except ValueError as e:
+            raise ValueError(
+                f"RATE_LIMIT_PER_KEY is not a valid rate string (expected e.g. '60/minute'): "
+                f"{self.rate_limit_per_key!r} ({e})"
+            ) from e
+        if not parsed:
+            raise ValueError(f"RATE_LIMIT_PER_KEY parsed to zero limits: {self.rate_limit_per_key!r}")
         return self
 
     @model_validator(mode="after")
