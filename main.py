@@ -105,6 +105,15 @@ async def health_ready(request: Request):
             content='{"status":"not_ready"}',
             media_type="application/json",
         )
+    try:
+        await db.ping()
+    except Exception:
+        logger.exception("Analytics DB liveness probe failed")
+        return Response(
+            status_code=503,
+            content='{"status":"not_ready"}',
+            media_type="application/json",
+        )
     return {"status": "ready"}
 
 

@@ -139,6 +139,18 @@ async def test_health_ready_returns_503_when_state_absent(client, monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_health_ready_returns_503_when_db_ping_fails(client, analytics_db):
+    """GET /health/ready returns 503 when analytics_db/analytics_writer are
+    both present but the underlying connection is no longer usable (WR-02) —
+    attribute presence alone must not be enough to report "ready"."""
+    await analytics_db.close()
+
+    response = await client.get("/health/ready")
+    assert response.status_code == 503
+    assert response.json() == {"status": "not_ready"}
+
+
+@pytest.mark.asyncio
 async def test_record_request_concurrent_calls_lose_no_increments():
     """N concurrently-scheduled record_request calls via asyncio.gather all
     land — proving no lost increments under concurrent asyncio scheduling."""

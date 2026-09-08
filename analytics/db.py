@@ -84,6 +84,18 @@ class AnalyticsDB:
         await self._db.execute("DROP TABLE _write_probe")
         await self._db.commit()
 
+    async def ping(self) -> None:
+        """Lightweight liveness probe for readiness checks.
+
+        Unlike write_probe() (used once at startup), this never writes —
+        `/health/ready` may be polled frequently by an orchestrator, and a
+        CREATE/DROP TABLE + commit on every poll would needlessly touch the
+        WAL. A plain `SELECT 1` still proves the connection handle is open
+        and the underlying file is actually readable (WR-02).
+        """
+        async with self._db.execute("SELECT 1") as cursor:
+            await cursor.fetchone()
+
     async def close(self) -> None:
         if self._db:
             await self._db.close()
