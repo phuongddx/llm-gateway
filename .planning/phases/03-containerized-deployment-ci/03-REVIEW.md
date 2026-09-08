@@ -24,8 +24,8 @@ findings:
   warning: 1
   info: 3
   total: 4
-status: findings
-fixed: []
+status: fixed
+fixed: [WR-01, IN-01, IN-02, IN-03]
 ---
 
 # Phase 03: Code Review Report — Containerized Deployment & CI
@@ -86,6 +86,24 @@ COPY main.py config.py rate_limiter.py ./
 **File:** `.github/workflows/ci.yml:19` vs `Makefile:33-34`
 **Issue:** CI runs `python -m pytest -q` (no explicit path, quiet mode); the Makefile's `test` target runs `.venv/bin/python -m pytest tests/ -v` (explicit `tests/` path, verbose). Both currently resolve to the same test set because there's only one test package to discover, but they're not literally the same invocation a contributor would run locally, which can be confusing when explaining "reproduce the CI failure locally" (a common ask after a red CI run).
 **Fix:** Align them, e.g. `run: python -m pytest tests/ -q` in `ci.yml`, or add a `Makefile` target CI can call directly (`make test`) so there is exactly one source of truth for the invocation.
+
+## Dispositions
+
+### WR-01: GitHub Actions steps pinned to mutable major-version tags, not immutable SHAs
+**Status:** fixed — commit `f66faed`
+`actions/checkout@v7` and `actions/setup-python@v7` (3 occurrences across `lint`, `test`, `docker-build`) pinned to their exact commit SHAs, resolved via `gh api repos/<owner>/<repo>/git/refs/tags/<tag>`: `actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1`, `actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0`. Verified green on the resulting Actions run (all 4 jobs).
+
+### IN-01: Dockerfile copies `requirements.txt` into the runtime stage unnecessarily
+**Status:** fixed — commit `6555023`
+Dropped `requirements.txt` from the final-stage `COPY main.py config.py rate_limiter.py requirements.txt ./` line; the builder stage retains its own `COPY requirements.txt .` for `pip install`. Verified via green `docker-build` job on CI.
+
+### IN-02: `noqa: RUF015` rationale in test comments is imprecise
+**Status:** fixed — commit `f861b26`
+Reworded both occurrences in `tests/test_openai_compatible_base.py:56,65` from `# noqa: RUF015 -- next() doesn't apply to async generators` to `# noqa: RUF015 -- readability preference; list already fully materialized above`. Verified via full local test suite (117 passed) and green `lint` job on CI.
+
+### IN-03: CI test invocation diverges from the Makefile's own `test` target
+**Status:** fixed — commit `ad40bb7`
+`ci.yml`'s `test` job now runs `python -m pytest tests/ -q` (explicit `tests/` path, matching the Makefile's `test` target path convention; CI keeps `-q` instead of `-v` for concise log output). Verified via green `test (3.12)` and `test (3.14)` jobs on CI.
 
 ---
 
