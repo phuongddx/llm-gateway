@@ -123,13 +123,14 @@ async function* streamChat(messages, model, systemPrompt, params) {
         if (!line.startsWith('data: ')) continue;
         const data = line.slice(6);
         if (data === '[DONE]') return;
+        let parsed;
         try {
-          const parsed = JSON.parse(data);
-          if (parsed.error) throw new Error(parsed.error?.message || 'Unknown gateway error');
-          if (parsed.token) yield parsed.token;
-        } catch (e) {
-          if (e.message && !e.message.includes('JSON')) throw e;
+          parsed = JSON.parse(data);
+        } catch {
+          continue; // malformed frame — skip, never a gateway error
         }
+        if (parsed.error) throw new Error(parsed.error?.message || 'Unknown gateway error');
+        if (parsed.token) yield parsed.token;
       }
     }
   }
@@ -140,13 +141,14 @@ async function* streamChat(messages, model, systemPrompt, params) {
       if (!line.startsWith('data: ')) continue;
       const data = line.slice(6).trim();
       if (data === '[DONE]') return;
+      let parsed;
       try {
-        const parsed = JSON.parse(data);
-        if (parsed.error) throw new Error(parsed.error?.message || 'Unknown gateway error');
-        if (parsed.token) yield parsed.token;
-      } catch (e) {
-        if (e.message && !e.message.includes('JSON')) throw e;
+        parsed = JSON.parse(data);
+      } catch {
+        continue; // malformed frame — skip, never a gateway error
       }
+      if (parsed.error) throw new Error(parsed.error?.message || 'Unknown gateway error');
+      if (parsed.token) yield parsed.token;
     }
   }
 }
