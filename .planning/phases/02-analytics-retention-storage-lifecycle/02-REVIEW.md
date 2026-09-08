@@ -21,7 +21,7 @@ findings:
   info: 2
   total: 3
 status: findings
-fixed: []
+fixed: [WR-01, IN-01, IN-02]
 ---
 
 # Phase 02: Code Review Report
@@ -174,6 +174,48 @@ finally:
 |---|---|---|
 | ANLT-01 (bounded `request_logs` growth via TTL purge) | Met | `purge_expired` + startup/6h writer tick; boundary/opt-out/multi-batch/idempotency/reclaim tests; e2e test seeds a real pre-existing file DB (no manual SQL) |
 | ANLT-02 (analytics stay accurate, fast, disk-bounded) | Met | Endpoints serve only retained data post-purge (all four); 20-stream burst unblocked during purge with exactly-once rows; readiness never awaits a purge; incremental-vacuum reclamation with `page_count` drop pinned |
+
+## Dispositions
+
+Fixed by gsd-code-fixer (Fix-P2) on 2026-09-08, all in-scope findings. Suite:
+`.venv/bin/python -m pytest tests/ -q` → **117 passed** (116 baseline + 1 new
+regression test); `tests/test_analytics_retention.py` re-run 2× more (14 passed
+each) for timing confidence.
+
+### WR-01 — fixed (`5529dd1`)
+
+`analytics/db.py`: `purge_expired` now raises `ValueError("batch must be >= 1
+(got {batch}); 0/negative never terminates the DELETE loop")` immediately after
+the keep-forever early-return, mirroring the writer's `queue_size` ctor guard
+(message and placement per the review's fix). Regression test
+`test_purge_rejects_batch_below_one_instead_of_spinning` seeds 5 expired rows
+and proves `batch=0` and `batch=-1` raise before any deletion (all rows
+survive), each call bounded by `asyncio.wait_for(..., 2.0)` so a regression
+fails in 2s instead of hanging. TDD evidence: pre-fix the test failed with
+`TimeoutError` (loop non-termination reproduced); post-fix it passes in 0.02s.
+
+### IN-01 — fixed (`4eb471e`)
+
+`tests/test_analytics_retention.py`
+(`test_interleave_queue_drained_between_purge_batches`): the fixed
+`await asyncio.sleep(0.3)` is replaced by the file's own bounded-wait
+convention — 5s deadline polling `writer.last_purged != 2500` at 10ms with
+`pytest.fail` on expiry — so `get_recent` can no longer observe mid-purge
+partial state on a loaded runner. Test passes (0.08s) and stays green across
+repeat runs.
+
+### IN-02 — fixed (`09ab14c`)
+
+`tests/test_analytics_retention.py`
+(`test_burst_streams_unblocked_during_purge`): `responses = []` is bound
+before the `try`, per the review's recommended shape. One mechanism note,
+recorded for accuracy: in CPython an exception raised by the `gather` (or the
+bounded-wait `pytest.fail`) propagates out through the `finally` and fails the
+test at the raise site — the post-`finally` asserts are unreachable on that
+path, so the literal `NameError` could not fire exactly as described. The
+pre-binding is still correct hardening: it makes the variable's scope explicit
+and keeps the post-`finally` asserts safe under any future widening of the
+error path (e.g. an added `except`). Burst test passes (1.33s).
 
 ---
 
