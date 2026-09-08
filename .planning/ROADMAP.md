@@ -57,7 +57,12 @@ Plans:
   2. Rows older than the TTL are purged automatically (at startup and periodically); `/v1/analytics/{summary,models,requests,credits}` serve the retained data correctly afterwards
   3. Purging never blocks or delays response streaming (fire-and-forget preserved) and WAL-mode concurrent reads keep working during purge; on-disk growth is bounded and space from purged rows is reclaimable (auto-vacuum on, or a documented one-liner)
 
-**Plans**: TBD
+**Plans**: 3 plans
+Plans:
+
+- [ ] 02-01-PLAN.md — tracer: `ANALYTICS_RETENTION_DAYS` knob → lifespan → writer startup purge → batched `purge_expired` + auto_vacuum reclamation, proven end-to-end in one real lifespan (ANLT-01, ANLT-02)
+- [ ] 02-02-PLAN.md — 6h deadline tick inside the writer loop + inter-batch drain; endpoints-post-purge and 20-stream burst-during-purge proofs (ANLT-02)
+- [ ] 02-03-PLAN.md — operator docs: `.env.example` knob, README env row + one-time VACUUM migration note, AGENTS.md analytics section (ANLT-01, ANLT-02)
 
 ### Phase 3: Containerized Deployment & CI
 
@@ -121,7 +126,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 (optional)
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Gateway Runtime Hardening | 3/3 | Complete    | 2026-09-08 |
-| 2. Analytics Retention & Storage Lifecycle | 0/? | Not started | - |
+| 2. Analytics Retention & Storage Lifecycle | 0/3 | Not started | - |
 | 3. Containerized Deployment & CI | 0/? | Not started | - |
 | 4. Observability & Resilience | 0/? | Not started | - |
 | 5. Routing Decision & Documentation Refresh | 0/? | Not started | - |
