@@ -4,6 +4,8 @@
 
 **Phases completed:** 5 phases, 15 plans, 33 tasks
 
+**Closeout type:** override_closeout (user-approved 2026-09-08). All 5 phases showed stale verification fingerprints at close — caused by later verified phases modifying earlier phases' covered files (cross-phase evolution), not failed verifications; every phase passed verification at completion (4/4, 2/2, 11/11, 12/12, 7/7) and all post-verification deltas were verified under their own phases + CI (142 tests, 4/4 CI jobs green at tag time). Known verification overrides: 0 newly acknowledged, 0 carried forward from a prior close. Optional Phase 6 (SCB-01, v2-gated) intentionally left unstarted per user decision.
+
 **Key accomplishments:**
 
 - Bounded AnalyticsWriter (drop-newest queue → serial SQLite drain) + nested OpenAI-style SSE error frames, proven end-to-end by a mid-stream quota failure delivering token frames, the exact quota error object, [DONE], and exactly one request_logs row
