@@ -136,6 +136,26 @@ async def test_readonly_analytics_db_file_aborts_at_write_probe(monkeypatch, tmp
 
 
 @pytest.mark.asyncio
+async def test_uncreatable_analytics_parent_aborts_with_curated_error(monkeypatch, tmp_path):
+    """mkdir EACCES on a deeper path surfaces as the curated RuntimeError
+    naming ANALYTICS_DB_PATH, not a bare PermissionError (MN-02)."""
+    from main import app, lifespan
+    from config import settings
+
+    readonly_dir = tmp_path / "readonly"
+    readonly_dir.mkdir()
+    readonly_dir.chmod(0o500)
+    monkeypatch.setattr(settings, "app_api_key", "k")
+    monkeypatch.setattr(settings, "analytics_db_path", str(readonly_dir / "sub" / "a.db"))
+    try:
+        with pytest.raises(RuntimeError, match="ANALYTICS_DB_PATH"):
+            async with lifespan(app):
+                pass
+    finally:
+        readonly_dir.chmod(0o700)  # restore so tmp_path cleanup succeeds
+
+
+@pytest.mark.asyncio
 async def test_startup_abort_is_deterministic_and_side_effect_free(monkeypatch, tmp_path):
     from main import app, lifespan
     from config import settings

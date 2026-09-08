@@ -38,7 +38,12 @@ async def lifespan(app: FastAPI):
     # Startup
     db_path = settings.analytics_db_path
     parent = Path(db_path).parent
-    parent.mkdir(parents=True, exist_ok=True)
+    try:
+        parent.mkdir(parents=True, exist_ok=True)
+    except OSError as e:
+        raise RuntimeError(
+            f"ANALYTICS_DB_PATH parent directory is not writable/creatable: {parent} ({e})"
+        ) from e
     if not os.access(parent, os.W_OK):
         raise RuntimeError(f"ANALYTICS_DB_PATH parent directory is not writable: {parent}")
     db = AnalyticsDB(db_path)
