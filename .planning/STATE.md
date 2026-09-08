@@ -3,16 +3,16 @@ gsd_state_version: "1.0"
 current_phase: 4
 current_phase_name: Observability & Resilience
 status: executing
-stopped_at: Completed 04-01-PLAN.md
-last_updated: "2026-09-08T11:42:31.711Z"
+stopped_at: Completed 04-02-PLAN.md
+last_updated: "2026-09-08T11:49:25.463Z"
 last_activity: 2026-09-08
 last_activity_desc: Phase 4 execution started
-state_head: 6ec9b07af916a2bb921b927316b1323f4bcbe11a
+state_head: 3e04fbb4cba87fd3ab38b8194050e1db32ff9ce0
 progress:
   total_phases: 6
   completed_phases: 0
   total_plans: 12
-  completed_plans: 9
+  completed_plans: 10
   percent: 0
 ---
 
@@ -41,7 +41,7 @@ See: .planning/PROJECT.md (updated 2026-09-08)
 ## Current Position
 
 Phase: 4 (Observability & Resilience) — EXECUTING
-Plan: 2 of 4
+Plan: 3 of 4
 Status: Ready to execute
 Last activity: 2026-09-08 — Phase 4 execution started
 
@@ -82,6 +82,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 03 P03-01 | 25min | 2 tasks | 6 files |
 | Phase 03 P03-02 | 35min | 3 tasks | 13 files |
 | Phase 04 P01 | 40min | 2 tasks | 7 files |
+| Phase 04 P02 | 25min | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -116,6 +117,7 @@ Recent decisions affecting current work:
 - [Phase 3]: tests/conftest.py client fixture pins settings.app_api_key explicitly — 19 tests previously depended on a gitignored local .env value absent in CI
 - [Phase 4]: [Phase 4]: 04-01: metrics.py render() fixed double-cumulative histogram bug found via boundary test — buckets[i] emitted directly, not re-summed
 - [Phase 4]: [Phase 4]: 04-01: /health split into /health/live (no deps) + /health/ready (reads app.state.analytics_db/analytics_writer presence); Dockerfile/Makefile healthchecks repointed to /health/ready
+- [Phase 4]: [Phase 4]: 04-02: max_retries=0 + tenacity AsyncRetrying wraps only the pre-stream create() call (allow-list predicate, reraise=True) — closes a pre-existing silent ZAI-3 gap where the SDK's own default retry could retry a z.ai quota/auth failure first
 
 ### Pending Todos
 
@@ -138,6 +140,6 @@ Items acknowledged and deferred at milestone close, most recent first:
 
 ## Session Continuity
 
-Last session: 2026-09-08T11:42:31.684Z
-Stopped at: Completed 04-01-PLAN.md
+Last session: 2026-09-08T11:49:25.432Z
+Stopped at: Completed 04-02-PLAN.md
 Resume file: None

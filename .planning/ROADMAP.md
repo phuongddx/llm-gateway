@@ -105,12 +105,12 @@ Plans:
   3. Transient provider errors (network timeouts, 5xx) are retried with backoff against the same provider only; z.ai quota (429/1113) and auth (401/403) failures are never retried and never rerouted to Manifest (locked ZAI-3); after exhausted retries the client sees the provider-distinct error
   4. Health endpoints distinguish liveness from readiness — readiness reports the analytics DB as initialized before the container reports ready (feeds the Phase 3 healthcheck)
 
-**Plans**: 1/4 plans executed
+**Plans**: 2/4 plans executed
 Plans:
 **Wave 1**
 
 - [x] 04-01-PLAN.md — tracer: /metrics + /health/live + /health/ready wired end-to-end, Dockerfile/Makefile healthcheck repoint (OBSV-01)
-- [ ] 04-02-PLAN.md — tracer: max_retries=0 + tenacity AsyncRetrying wrap around the pre-stream create() call, same-provider-only allow-list retry (OBSV-03)
+- [x] 04-02-PLAN.md — tracer: max_retries=0 + tenacity AsyncRetrying wrap around the pre-stream create() call, same-provider-only allow-list retry (OBSV-03)
 
 **Wave 2** *(blocked on 04-01 — shared routes/chat.py)*
 
@@ -157,6 +157,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 (optional)
 | 1. Gateway Runtime Hardening | 3/3 | Complete    | 2026-09-08 |
 | 2. Analytics Retention & Storage Lifecycle | 3/3 | Complete    | 2026-09-08 |
 | 3. Containerized Deployment & CI | 2/2 | Complete    | 2026-09-08 |
-| 4. Observability & Resilience | 1/4 | In Progress|  |
+| 4. Observability & Resilience | 2/4 | In Progress|  |
 | 5. Routing Decision & Documentation Refresh | 0/? | Not started | - |
 | 6. Stress-Support Chatbot MVP (Optional) | 0/? | Deferred (preconditions unmet) | - |

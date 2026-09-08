@@ -68,7 +68,7 @@ Derived from ingest open items: production-readiness backlog, analytics retentio
 
 - [x] **OBSV-01**: A Prometheus-scrape endpoint exposes request count, latency histogram, and error rate (prefer zero new dependencies — hand-rolled text exposition; any new dep needs an explicit decision per NFR-02)
 - [ ] **OBSV-02**: A client exceeding its configured per-key rate limit receives HTTP 429 from the gateway without provider traffic being sent; limit configurable via `.env`
-- [ ] **OBSV-03**: Transient provider errors (network timeouts, 5xx) retry with backoff against the same provider only; z.ai quota (429/code 1113) and auth (401/403) failures are never retried and never rerouted to Manifest (locked decision ZAI-3); after exhausted retries the client sees the provider-distinct error
+- [x] **OBSV-03**: Transient provider errors (network timeouts, 5xx) retry with backoff against the same provider only; z.ai quota (429/code 1113) and auth (401/403) failures are never retried and never rerouted to Manifest (locked decision ZAI-3); after exhausted retries the client sees the provider-distinct error
 
 ### Routing & Documentation (Phase 5)
 
@@ -127,7 +127,7 @@ v1 (active) requirements → phases. Baseline and Historical sections are intent
 | DEPL-03 | Phase 3 | Complete |
 | OBSV-01 | Phase 4 | Complete |
 | OBSV-02 | Phase 4 | Pending |
-| OBSV-03 | Phase 4 | Pending |
+| OBSV-03 | Phase 4 | Complete |
 | ROUT-01 | Phase 5 | Pending |
 | DOCS-01 | Phase 5 | Pending |
 | DOCS-02 | Phase 5 | Pending |
