@@ -2,13 +2,13 @@
 
 ## What This Is
 
-A FastAPI-based, OpenAI-compatible LLM gateway serving a single developer's coding workflows. Clients send a `model` name; the gateway resolves it across exactly two providers — Manifest (default, 500+ model passthrough) and the z.ai GLM Coding Plan endpoint (quota-backed, key-gated `glm-*` routing) — streams every response via SSE, and logs per-request analytics (tokens, latency, TTFT, credit burn) to SQLite. Zero infrastructure dependencies: one Python process, one `.env` file.
+A FastAPI-based, OpenAI-compatible LLM gateway serving a single developer's coding workflows. Clients send a `model` name; the gateway resolves it across exactly two providers — Manifest (default, 500+ model passthrough) and the z.ai GLM Coding Plan endpoint (quota-backed, key-gated `glm-*` routing) — streams every response via SSE, and logs per-request analytics (tokens, latency, TTFT, credit burn) to SQLite. v1.0 ships it production-ready: bounded TTL-retained analytics, multi-stage non-root Docker/Compose deployment, GitHub Actions CI, Prometheus metrics, liveness/readiness health split, per-key rate limiting, and same-provider-only transient retry. Zero infrastructure dependencies: one container, one `.env` file.
 
 ## Core Value
 
 Reliable quota-backed GLM serving: zai-coding requests succeed without quota-exhaustion incidents across a full coding day, with credit burn visible at `GET /v1/analytics/credits`.
 
-**Target runtime:** Docker/Compose single-container deployment (persistent volume for the analytics DB; all config via `.env` passthrough).
+**Shipped runtime (v1.0):** Docker/Compose single-container deployment (persistent volume for the analytics DB; all config via `.env` passthrough), CI-gated `main`.
 
 ## Locked Decisions
 
@@ -77,7 +77,7 @@ Full contracts: docs/system-architecture.md, zai-coding spec, .planning/intel/co
 
 - ✓ OpenAI-compatible `POST /v1/chat/completions` with SSE streaming (`data: {"token": ...}` frames, `data: [DONE]` terminator); `messages` array (user/assistant roles); optional `system_prompt` prepended — REQ-FR-01/03/04/05
 - ✓ Model routing with passthrough semantics: unknown non-GLM → `("manifest", name-as-given)`; `glm-*` → zai-coding canonicalized to `glm-5.3`/`glm-5.3-flash` (flash-named aliases → flash; never downgrade quality tier), degrading to Manifest canonical ids when no effective z.ai key (`ZAI_CODING_API_KEY` or `LLM_API_KEY`) — REQ-FR-02 (amended), current form of REQ-FR-11
-- ✓ Bearer auth on all `/v1/` endpoints via `APP_API_KEY` (401 `{"detail": "Invalid API key"}`); `/health` and `/playground` exempt — REQ-FR-06
+- ✓ Bearer auth on all `/v1/` endpoints via `APP_API_KEY` (401 `{"detail": "Invalid API key"}`); `/health/live`, `/health/ready`, `/metrics`, and `/playground` exempt (v1.0 health split) — REQ-FR-06
 - ✓ `GET /v1/models` (OpenAI list format, built from `MODEL_ROUTING`) — REQ-FR-14
 - ✓ SQLite analytics: fire-and-forget `request_logs` (provider, model, tokens, latency_ms, ttft_ms, status, `credits_used`), WAL mode, idempotent `credits_used` migration — REQ-FR-15/20, REQ-NFR-05/06
 - ✓ Analytics API (auth-required): `/v1/analytics/summary`, `/v1/analytics/models`, `/v1/analytics/requests`, `/v1/analytics/credits` — REQ-FR-16/17/18 + zai-coding spec
@@ -86,22 +86,26 @@ Full contracts: docs/system-architecture.md, zai-coding spec, .planning/intel/co
 - ✓ NFRs held: <50ms gateway overhead, <3s startup, minimal runtime deps — REQ-NFR-01/02/04
 - ✓ Playground web UI: static HTML/vanilla JS, no build step, session-only key in JS memory, localStorage conversations — Era 2 (non-goals honored)
 
+v1.0 milestone (shipped 2026-09-08, all verified):
+
+- ✓ RELI-01 — Startup key validation: fail-fast abort naming the missing `APP_API_KEY`; z.ai no-key notice (no abort) with key-gated GLM degradation — v1.0
+- ✓ RELI-02 — Bounded analytics write path: drop-newest AnalyticsWriter queue, exactly-once rows under concurrent streams — v1.0
+- ✓ RELI-03 — OpenAI-style SSE error object; distinct z.ai quota/auth messages; no internal text leaked — v1.0
+- ✓ ANLT-01 — `ANALYTICS_RETENTION_DAYS` TTL bounds `request_logs` (default 90) — v1.0
+- ✓ ANLT-02 — Automatic purge (startup + 6h periodic) with incremental-vacuum reclamation, never blocking streams — v1.0
+- ✓ DEPL-01 — Multi-stage non-root Docker image, request-ready <3s in-container — v1.0
+- ✓ DEPL-02 — Single `docker compose up`: green healthcheck, persistent volume, `.env` passthrough, no baked secrets — v1.0
+- ✓ DEPL-03 — GitHub Actions CI (ruff lint + 3.12/3.14 test matrix + docker-build), green on `main` — v1.0
+- ✓ OBSV-01 — Hand-rolled Prometheus `/metrics` (request count, latency histogram, error rate), zero new deps — v1.0
+- ✓ OBSV-02 — Per-key rate limiting (`RATE_LIMIT_PER_KEY`, HTTP 429 before provider traffic) — v1.0
+- ✓ OBSV-03 — Same-provider-only transient retry (tenacity, 3 attempts, backoff+jitter); never quota/auth, never Manifest reroute (ZAI-3 held; closed a pre-existing SDK default-retry gap) — v1.0
+- ✓ ROUT-01 — `model="auto"` decision: KEEP, regression-tested, recorded above — v1.0
+- ✓ DOCS-01 — PDR + project-roadmap refreshed to two-provider reality; superseded FRs marked historical — v1.0
+- ✓ DOCS-02 — Deployment guide (Docker/Compose + 12-var env surface) + code standards (live test-file enumeration) refreshed — v1.0
+
 ### Active
 
-- [ ] RELI-01 — Startup key validation: fail fast on missing `APP_API_KEY`; explicit notice (no abort) when no effective z.ai key, preserving opt-in/rollback-by-unset semantics
-- [ ] RELI-02 — Bounded analytics write path under concurrent streaming: capped queue, no dropped logs, streaming never blocked when SQLite lags
-- [ ] RELI-03 — SSE error frames aligned with the OpenAI error-object shape; quota/auth messages stay distinct; no internal text leaked
-- [ ] ANLT-01 — Retention setting bounds `request_logs` growth (`.env` TTL, documented default)
-- [ ] ANLT-02 — Automatic purge (startup + periodic) keeps analytics endpoints correct without blocking streams
-- [ ] DEPL-01 — Multi-stage non-root Docker image, request-ready <3s in-container
-- [ ] DEPL-02 — Single `docker compose up` deployment: green healthcheck, persistent analytics volume, `.env` passthrough, no baked secrets
-- [ ] DEPL-03 — GitHub Actions CI: lint + tests + image build on push/PR
-- [ ] OBSV-01 — Prometheus metrics (request count, latency histogram, error rate) at a scrape endpoint
-- [ ] OBSV-02 — Per-key rate limiting enforced (HTTP 429 before provider traffic), configurable via `.env`
-- [ ] OBSV-03 — Same-provider-only transient-error retry with backoff; never retries z.ai quota/auth, never reroutes to Manifest
-- [ ] ROUT-01 — `model="auto"` deprecation decision resolved (keep/pin/remove), implemented, recorded
-- [ ] DOCS-01 — `project-overview-pdr.md` + `project-roadmap.md` refreshed to two-provider reality; superseded FRs marked historical
-- [ ] DOCS-02 — `deployment-guide.md` (Docker/Compose + current env surface) + `code-standards.md` (file tree, provider recipe) refreshed
+None — v1.0 shipped everything above. Next milestone's requirements are defined via `/gsd-new-milestone`.
 
 ### Out of Scope
 
@@ -117,16 +121,15 @@ Full contracts: docs/system-architecture.md, zai-coding spec, .planning/intel/co
 
 ## Context
 
-- **Architecture evolution:** Gemini-only prototype (~1200 LOC) → 2026-04-16 multi-provider router + analytics → 2026-04-17 playground UI → 2026-04-19 Manifest cutover (all native providers collapsed into ManifestProvider; cost calc stubbed to 0.0) → 2026-09-07 zai-coding (GLM → Coding Plan endpoint with credit analytics). Current: ~1,800 LOC, ~24 Python files, two providers.
-- **Current-state authority:** `docs/system-architecture.md` + `docs/superpowers/specs/2026-09-07-zai-coding-plan-support-design.md` (both current); `docs/codebase-summary.md` current. The PRD/deployment-guide/code-standards/project-roadmap docs are stale on the superseded architecture — refresh is roadmap Phase 5.
+- **Architecture evolution:** Gemini-only prototype (~1200 LOC) → 2026-04-16 multi-provider router + analytics → 2026-04-17 playground UI → 2026-04-19 Manifest cutover (all native providers collapsed into ManifestProvider; cost calc stubbed to 0.0) → 2026-09-07 zai-coding (GLM → Coding Plan endpoint with credit analytics) → 2026-09-08 v1.0 hardening (bounded analytics + TTL retention, Docker/Compose + CI, metrics/health-split/per-key rate limiting, transient retry, doc refresh). Current: ~1,400 LOC application Python (32 tracked files incl. tests, ~4,100 total), two providers, 142 tests green.
+- **Current-state authority:** `README.md`, `AGENTS.md`, `docs/system-architecture.md`, `docs/superpowers/specs/2026-09-07-zai-coding-plan-support-design.md` — and, since Phase 5, the refreshed `docs/project-overview-pdr.md`, `docs/project-roadmap.md`, `docs/deployment-guide.md`, `docs/code-standards.md`. No known stale docs remain.
 - **z.ai economics (why Max tier works):** heavy agentic turn ≈36.6 credits → ~3,800 heavy turns/week on quota vs ~$230/week pay-as-you-go equivalent; cache-hit coding traffic ≈5–10× cost reduction. Quota exhaustion mid-session = GLM unavailable up to 5h (mitigated by distinct quota errors + credits analytics).
 - **Accepted risk:** Manifest API downtime = all non-GLM requests fail (single point of failure, acceptable for personal use). Unsetting `ZAI_CODING_API_KEY` reverts all GLM routing to Manifest pay-per-token.
 - **Lessons that still govern:** generator wrapper (`_tracked_stream`) over middleware for analytics; static routing dicts in Python (auditable, git-controlled — no config DB); SQLite + WAL for single-instance analytics; `OpenAICompatibleProvider` base makes each new OpenAI-protocol provider ~8–11 lines.
-- **Open engineering items** (drove this roadmap): startup key validation, concurrent-streaming load test of fire-and-forget logging, SSE error schema alignment, analytics retention, Manifest-`auto` deprecation decision, production-readiness backlog (Docker/Compose target, CI, metrics, rate limiting, retry), doc-refresh backlog.
-
+- **Open items after v1.0:** Phase 6 stress-chatbot preconditions (target language, hosting target, crisis jurisdiction, source doc formats) — v2, optional; PROD-01..03 (secrets management, horizontal scaling, API versioning) — v2, low priority.
 ## Constraints
 
-- **Tech stack**: Python 3.12+ floor, FastAPI, AsyncOpenAI, pydantic-settings, aiosqlite — no 3.13-only syntax; kebab-case filenames, TypedDict payloads, PEP 604 unions
+- **Tech stack**: Python 3.12+ floor (CI matrix: 3.12 + 3.14), FastAPI, AsyncOpenAI, pydantic-settings, aiosqlite — no 3.13-only syntax; snake_case filenames, TypedDict payloads, PEP 604 unions
 - **Dependencies**: no new runtime dependencies without an explicit decision (REQ-NFR-02; zai-coding plan mandated zero new deps — prefer hand-rolled Prometheus text exposition over `prometheus-client` unless decided otherwise)
 - **Deployment**: Docker/Compose single container — multi-stage, non-root, persistent volume for SQLite, single `.env` passthrough, no secrets baked into the image
 - **Protocol**: locked decisions ZAI-1..4 (above) — in particular the no-fallback rule constrains all retry/resilience work
@@ -148,6 +151,10 @@ Full contracts: docs/system-architecture.md, zai-coding spec, .planning/intel/co
 | SQLite + WAL for analytics | Right call for single-instance; no Postgres, no migration framework | ✓ Good |
 | Playground: static HTML + vanilla JS, no build step | YAGNI — playground, not product | ✓ Good |
 | `model="auto"` kept unchanged (ROUT-01) | Verified against current Manifest docs — `auto` now rides the Default tier + up to 5 fallbacks, not the deprecated prompt-complexity classifier | ✓ Good |
+| tenacity as the retry engine (Phase 4) | First new runtime dep added by explicit decision (NFR-02 gate held): battle-tested backoff/jitter, async-native; allow-list predicate keeps ZAI-3 byte-exact | ✓ Good |
+| ruff pinned to 0.16.6 in CI (Phase 3) | Reproducible lint; documented escape via bump decision | ✓ Good |
+| `/health/live` + `/health/ready` split (Phase 4) | Readiness = DB liveness (retention purge depends on it); liveness stays dependency-free for restart semantics | ✓ Good |
+| Docs enumerate `tests/*.py` live (Phase 5) | Hardcoded file lists go stale the moment a test lands; the TESTLIST_MATCH check fails the doc if counts drift | ✓ Good |
 
 ---
-*Last updated: 2026-09-08 after new-project-from-ingest bootstrap (ingest of 26 docs: 0 ADR, 2 SPEC, 1 PRD, 23 DOC)*
+*Last updated: 2026-09-08 after v1.0 milestone (Gateway Hardening & Production Readiness)*
