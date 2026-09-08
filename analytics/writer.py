@@ -15,7 +15,7 @@ class AnalyticsWriter:
     consumer task drains to AnalyticsDB. Client streams never wait on SQLite.
     """
 
-    def __init__(self, db, queue_size: int = 1000):
+    def __init__(self, db, queue_size: int = 1000, retention_days: int = 90):
         if queue_size < 1:
             # asyncio.Queue treats maxsize <= 0 as UNBOUNDED — refuse instead
             # of silently recreating the OOM hazard this writer exists to prevent.
@@ -27,6 +27,10 @@ class AnalyticsWriter:
         self._task: asyncio.Task | None = None
         self._stopped = False
         self.dropped = 0
+        self._retention_days = retention_days
+        # Public purge observables (precedent: self.dropped).
+        self.purges_run = 0
+        self.last_purged = None
 
     def start(self) -> None:
         self._task = asyncio.create_task(self._run(), name="analytics-writer")
@@ -51,7 +55,26 @@ class AnalyticsWriter:
             if self.dropped % 50 == 0:
                 logger.warning("Analytics queue full — %d records dropped so far", self.dropped)
 
+    async def _purge(self) -> None:
+        """One retention pass; failures contained — a purge error must never
+        kill the consumer task (all analytics writes would stop)."""
+        # Increment first so bounded waits on last_purged stay reliable even
+        # if the purge raises before assigning it.
+        self.purges_run += 1
+        try:
+            self.last_purged = await self._db.purge_expired(self._retention_days)
+        except Exception:
+            logger.exception("Analytics retention purge failed")
+
     async def _run(self) -> None:
+        # STARTUP purge — first action of the consumer task (locked "before/
+        # alongside writer start"): keeps lifespan startup instant (NFR-04)
+        # because the purge runs inside the task, and serializes with queued
+        # writes on the single connection. Mid-shutdown cancel safety: stop()
+        # may cancel mid-purge; each DELETE batch commits individually, so at
+        # most one uncommitted batch rolls back at close and the next startup
+        # purge resumes.
+        await self._purge()
         while True:
             record = await self._queue.get()
             try:

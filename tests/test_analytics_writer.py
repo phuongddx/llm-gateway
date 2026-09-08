@@ -90,10 +90,18 @@ async def test_gated_writer_drains_exactly_once_after_release(analytics_db):
 
     analytics_db.log_request = gated_log
     writer.start()
+    # The consumer's first action is the startup purge (Phase 2) — wait it
+    # out (bounded) so the gate test observes the record path from a parked
+    # consumer, as it did when queue.get() was the first action.
+    deadline = time.monotonic() + 5.0
+    while writer.last_purged is None:
+        if time.monotonic() >= deadline:
+            pytest.fail("startup purge did not complete within 5s")
+        await asyncio.sleep(0.01)
     for i in range(5):
         writer.enqueue(_record(i))
 
-    assert writer.qsize() == 5  # consumer task has not run yet (no yield since start)
+    assert writer.qsize() == 5  # parked consumer: nothing taken since no yield
     await asyncio.sleep(0)  # brief yield: consumer takes one record, blocks at the gate
     assert writer.qsize() == 4  # exactly one record in flight; nothing drained
     assert (await analytics_db.get_recent(limit=10))["total"] == 0

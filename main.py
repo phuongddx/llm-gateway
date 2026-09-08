@@ -55,7 +55,11 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         await db.close()
         raise RuntimeError(f"ANALYTICS_DB_PATH is not writable: {db_path} ({e})") from e
-    writer = AnalyticsWriter(db, queue_size=settings.analytics_queue_size)
+    writer = AnalyticsWriter(
+        db,
+        queue_size=settings.analytics_queue_size,
+        retention_days=settings.analytics_retention_days,
+    )
     writer.start()
     app.state.analytics_db = db
     app.state.analytics_writer = writer

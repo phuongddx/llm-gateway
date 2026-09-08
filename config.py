@@ -29,6 +29,7 @@ class Settings(BaseSettings):
     # Analytics
     analytics_db_path: str = "data/analytics.db"
     analytics_queue_size: int = 1000  # Bounded analytics write queue (drop-newest when full)
+    analytics_retention_days: int = 90  # 0 = keep forever (opt-out)
 
     model_config = {
         "env_file": ".env",
@@ -57,6 +58,16 @@ class Settings(BaseSettings):
             raise ValueError(
                 f"ANALYTICS_QUEUE_SIZE must be >= 1 (got {self.analytics_queue_size}); "
                 "0 or negative would disable the queue bound"
+            )
+        return self
+
+    @model_validator(mode="after")
+    def _validate_analytics_retention_days(self) -> "Settings":
+        """Fail fast on negative retention — a typo must not purge fresh rows."""
+        if self.analytics_retention_days < 0:
+            raise ValueError(
+                f"ANALYTICS_RETENTION_DAYS must be >= 0 (got {self.analytics_retention_days}); "
+                "0 disables retention (keep forever)"
             )
         return self
 

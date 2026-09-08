@@ -31,6 +31,7 @@ CREATE INDEX IF NOT EXISTS idx_logs_created_at ON request_logs(created_at);
 CREATE INDEX IF NOT EXISTS idx_logs_model ON request_logs(model);
 CREATE INDEX IF NOT EXISTS idx_logs_provider ON request_logs(provider);
 """
+_PURGE_BATCH = 1000  # ≈1000 rows per commit (locked) — keeps WAL checkpoints short
 
 
 class AnalyticsDB:
@@ -41,6 +42,14 @@ class AnalyticsDB:
     async def initialize(self) -> None:
         """Create tables and enable WAL mode."""
         self._db = await aiosqlite.connect(self.db_path)
+        # auto_vacuum must be set BEFORE any CREATE TABLE — SQLite silently
+        # refuses the flip on a DB that already has tables (probe P1).
+        try:
+            await self._db.execute("PRAGMA auto_vacuum=INCREMENTAL")
+        except sqlite3.OperationalError:
+            # Read-only DB files reject the header write here — write_probe()
+            # owns the curated abort for that case (Phase-1 contract, IM-02).
+            pass
         await self._db.execute("PRAGMA journal_mode=WAL")
         await self._db.executescript(_SCHEMA)
         # Migration: older databases predate the credits_used column
@@ -52,6 +61,15 @@ class AnalyticsDB:
             if "duplicate column" not in str(e):
                 raise
         await self._db.commit()
+        async with self._db.execute("PRAGMA auto_vacuum") as c:
+            auto_vacuum = (await c.fetchone())[0]
+        if auto_vacuum == 0:
+            # Pre-existing populated file: the pragma above silently no-ops
+            # (Pitfall 2) — informational only, never an error.
+            logger.info(
+                "auto_vacuum is off on this legacy analytics DB — the one-time "
+                "VACUUM migration documented in README enables space reclamation"
+            )
         logger.info("Analytics DB initialized at %s", self.db_path)
 
     async def write_probe(self) -> None:
@@ -100,6 +118,59 @@ class AnalyticsDB:
             await self._db.commit()
         except Exception:
             logger.exception("Failed to log request to analytics DB")
+
+    async def purge_expired(
+        self,
+        retention_days: int,
+        batch: int = _PURGE_BATCH,
+        *,
+        now: datetime | None = None,
+    ) -> int:
+        """Delete request_logs rows strictly older than retention_days; reclaim space.
+
+        A row exactly AT the cutoff instant is RETAINED (strict <). Returns the
+        number of rows deleted. Unlike log_request this propagates DB errors —
+        it returns int for test asserts and the writer loop owns containment.
+        """
+        if not self._db or retention_days <= 0:  # 0 = keep-forever opt-out
+            return 0
+        cutoff = ((now or datetime.now(timezone.utc)) - timedelta(days=retention_days)).isoformat()
+        deleted = 0
+        while True:
+            # No DELETE...LIMIT on this build (probe P3a) — the rowid-subquery
+            # form rides the covering index idx_logs_created_at (probe P3c).
+            cur = await self._db.execute(
+                "DELETE FROM request_logs WHERE rowid IN "
+                "(SELECT rowid FROM request_logs WHERE created_at < ? LIMIT ?)",
+                (cutoff, batch),
+            )
+            deleted += cur.rowcount
+            await self._db.commit()  # per-batch: short WAL checkpoints (locked)
+            if cur.rowcount < batch:
+                break
+        # Guarded reclamation: this SQLite build moves exactly ONE page per
+        # incremental_vacuum call (probes R2/R3a); the no-decrease break also
+        # terminates legacy auto_vacuum=0 files where the pragma no-ops
+        # (Pitfalls 1/2) instead of spinning forever.
+        async with self._db.execute("PRAGMA freelist_count") as c:
+            last_free = (await c.fetchone())[0]
+        for _ in range(last_free * 2 + 16):  # hard bound: freelist size + slack
+            await self._db.execute("PRAGMA incremental_vacuum")
+            async with self._db.execute("PRAGMA freelist_count") as c:
+                free = (await c.fetchone())[0]
+            if free == 0 or free >= last_free:  # freelist drained, or stalled
+                break
+            last_free = free
+        # Non-blocking checkpoint (busy=0 verified, probe P5) keeps the -wal
+        # file bounded after a purge pass; never TRUNCATE from the hot path.
+        await self._db.execute("PRAGMA wal_checkpoint(PASSIVE)")
+        if deleted:
+            logger.info(
+                "Analytics retention purge: %d rows older than %dd removed",
+                deleted,
+                retention_days,
+            )
+        return deleted
 
     async def get_summary(self, since: str | None = None) -> dict:
         """Aggregate stats across all requests, optionally filtered by date."""
