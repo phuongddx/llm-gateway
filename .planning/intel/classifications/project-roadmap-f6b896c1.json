@@ -1,0 +1,25 @@
+{
+  "source_path": "/Users/ddphuong/Projects/next-labs/llm-gateway/docs/project-roadmap.md",
+  "type": "DOC",
+  "confidence": "medium",
+  "manifest_override": false,
+  "title": "Project Roadmap",
+  "summary": "Phased development roadmap tracking the LLM gateway: core proxy and multi-provider routing/analytics complete; production readiness (Docker, CI/CD, monitoring) planned.",
+  "scope": [
+    "LLM gateway",
+    "multi-provider routing",
+    "SSE streaming",
+    "analytics pipeline",
+    "production readiness",
+    "Docker deployment",
+    "CI/CD"
+  ],
+  "cross_refs": [
+    "./project-overview-pdr.md",
+    "./system-architecture.md",
+    "./deployment-guide.md"
+  ],
+  "locked": false,
+  "precedence": null,
+  "notes": "Roadmap/progress-tracking doc: phase checkboxes, status markers, priorities table. Mild PRD signal from 'Success Criteria' section, but those are phase-completion milestones (two already 'achieved'), not product requirements; no user stories or acceptance criteria. No decision/consequences sections, no API/schema contracts. docs/ convention leans DOC per orchestrator instruction."
+}

@@ -1,0 +1,13 @@
+{
+  "source_path": "/Users/ddphuong/Projects/next-labs/llm-gateway/docs/journals/2026-04-16-multi-provider-router-and-analytics.md",
+  "type": "DOC",
+  "confidence": "medium",
+  "manifest_override": false,
+  "title": "Multi-Provider Router and Analytics: From Single-Provider to 7-Model Gateway",
+  "summary": "Work journal recording the transformation from a Gemini-only proxy to a 7-provider router with SQLite analytics, four review fixes, and lessons learned.",
+  "scope": ["multi-provider routing", "provider abstraction", "OpenAICompatibleProvider", "SQLite analytics", "request logging", "cost tracking", "authentication", "streaming responses"],
+  "cross_refs": [],
+  "locked": false,
+  "precedence": null,
+  "notes": "Dated retrospective journal (What Happened / Lessons Learned / Root Cause Analysis); 'Status: Resolved' is post-mortem metadata, not ADR status. 'What We Tried' contains ADR-like rejected-alternatives but they are embedded history, not a forward-looking locked decision record -> DOC. Filename suffix is path-derived (20260416), not SHA-256: hub op:start is broken (ENOENT spawning omp wrapper binary), no shell/compute tool available; suffix remains deterministic and collision-free (slug unique across the 26 docs)."
+}

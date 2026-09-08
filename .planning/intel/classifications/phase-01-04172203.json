@@ -1,0 +1,23 @@
+{
+  "source_path": "/Users/ddphuong/Projects/next-labs/llm-gateway/plans/0417-2203-playground-web-ui/phase-01.md",
+  "type": "DOC",
+  "confidence": "medium",
+  "manifest_override": false,
+  "title": "Phase 1: Backend — Static Files Mount + Playground Route",
+  "summary": "Phase plan adding FastAPI StaticFiles mount and /playground route serving a placeholder index.html, with mount-ordering constraints and phase success criteria.",
+  "scope": [
+    "FastAPI",
+    "StaticFiles middleware",
+    "/playground route",
+    "static file serving",
+    "playground web UI",
+    "main.py"
+  ],
+  "cross_refs": [
+    "main.py",
+    "static/playground/index.html"
+  ],
+  "locked": false,
+  "precedence": null,
+  "notes": "GSD phase-plan fragment (files to modify/create, implementation steps with code snippets, key constraints, phase success criteria). Path convention (plans/**/phase-NN) and task-list content agree on DOC. Success criteria are phase verification gates, not product acceptance criteria, so not PRD; inline code snippets are implementation tasks, not API/schema contracts, so not SPEC. No frontmatter; 'Status: pending' is a task status, not an ADR status."
+}

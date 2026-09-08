@@ -1,0 +1,21 @@
+{
+  "source_path": "/Users/ddphuong/Projects/next-labs/llm-gateway/docs/superpowers/specs/2026-09-07-zai-coding-plan-support-design.md",
+  "type": "SPEC",
+  "confidence": "high",
+  "manifest_override": false,
+  "title": "Z.AI GLM Coding Plan Support — Design Spec",
+  "summary": "Approved design for routing all GLM traffic to the Z.AI coding-plan endpoint: zai-coding provider, canonicalized routing, credit estimation, credits analytics API, no Manifest fallback.",
+  "scope": [
+    "zai-coding provider",
+    "GLM model routing canonicalization",
+    "credit estimation",
+    "analytics credits API",
+    "request_logs credits_used migration",
+    "quota/auth error handling",
+    "Z.AI GLM Coding Plan (Max tier)"
+  ],
+  "cross_refs": [],
+  "locked": false,
+  "precedence": null,
+  "notes": "Ambiguity resolved: header 'Status: Approved' and 'Decisions locked with user' are ADR-like, but dominant signals are SPEC (path under specs/, H1 'Design Spec', API endpoint + response schema, DB migration DDL, config/env contracts, data flow), so SPEC over ADR; locked=false per ADR-only rule despite Approved status. Filename suffix is NOT SHA-256: no process execution available (hub op:start/ps broken — ENOENT posix_spawn omp binary; no shell tool; no SQLite file usable), so suffix is a deterministic fallback digest = sum of the full POSIX path's 113 ASCII bytes (10670 = 0x29AE, zero-padded to 000029ae). Slug alone is unique in this batch, so no collision risk."
+}

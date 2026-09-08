@@ -1,0 +1,27 @@
+{
+  "source_path": "/Users/ddphuong/Projects/next-labs/llm-gateway/docs/project-overview-pdr.md",
+  "type": "PRD",
+  "confidence": "high",
+  "manifest_override": false,
+  "title": "Project Overview & Product Development Requirements",
+  "summary": "Product requirements for the LLM Gateway: an OpenAI-compatible FastAPI proxy routing to 8 LLM providers with SSE streaming, SQLite analytics, and REST cost/usage visibility.",
+  "scope": [
+    "LLM Gateway",
+    "provider routing",
+    "OpenAI-compatible chat completions",
+    "SSE streaming",
+    "request analytics",
+    "cost tracking",
+    "SQLite",
+    "FastAPI"
+  ],
+  "cross_refs": [
+    "./codebase-summary.md",
+    "./system-architecture.md",
+    "./code-standards.md",
+    "./deployment-guide.md",
+    "./project-roadmap.md"
+  ],
+  "locked": false,
+  "precedence": null
+}

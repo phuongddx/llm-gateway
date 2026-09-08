@@ -1,0 +1,23 @@
+{
+  "source_path": "/Users/ddphuong/Projects/next-labs/llm-gateway/docs/superpowers/plans/2026-09-07-zai-coding-plan-support.md",
+  "type": "DOC",
+  "confidence": "medium",
+  "manifest_override": false,
+  "title": "Z.AI GLM Coding Plan Support — Implementation Plan",
+  "summary": "Task-by-task TDD implementation plan for routing GLM traffic through the z.ai Coding Plan endpoint with credit-burn analytics; design lives in companion spec.",
+  "scope": [
+    "ZAICodingProvider",
+    "GLM model routing",
+    "z.ai Coding Plan endpoint",
+    "credit analytics",
+    "credits_used column",
+    "GET /v1/analytics/credits"
+  ],
+  "cross_refs": [
+    "docs/superpowers/specs/2026-09-07-zai-coding-plan-support-design.md",
+    "README.md"
+  ],
+  "locked": false,
+  "precedence": null,
+  "notes": "Superpowers execution plan (checkbox tasks, TDD steps, commit instructions) under docs/superpowers/plans/ — plan structure dominates, and it explicitly defers design to the companion spec in cross_refs. Contains SPEC-like 'Interfaces' sections (signatures, endpoint, credits_used column), creating mild type tension; resolved to DOC per plan convention. Do not extract contracts from this doc — extract from the companion design spec. Filename uses slug only (no source_hash suffix): process spawning is broken in this environment (omp ENOENT), so the path hash could not be computed; slug is unique among ingested docs, so no sibling collision."
+}

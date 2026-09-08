@@ -1,0 +1,23 @@
+{
+  "source_path": "/Users/ddphuong/Projects/next-labs/llm-gateway/docs/codebase-summary.md",
+  "type": "DOC",
+  "confidence": "high",
+  "manifest_override": false,
+  "title": "Codebase Summary",
+  "summary": "Descriptive overview of the LLM gateway codebase: per-file breakdown, model-based routing, provider hierarchy, analytics tracking, and key implementation patterns.",
+  "scope": [
+    "LLM gateway",
+    "model routing",
+    "provider hierarchy",
+    "analytics database",
+    "chat completions endpoint",
+    "FastAPI application structure"
+  ],
+  "cross_refs": [
+    "./code-standards.md",
+    "./system-architecture.md",
+    "./project-overview-pdr.md"
+  ],
+  "locked": false,
+  "precedence": null
+}

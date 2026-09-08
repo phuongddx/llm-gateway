@@ -1,0 +1,13 @@
+{
+  "source_path": "/Users/ddphuong/Projects/next-labs/llm-gateway/plans/0419-2337-manifest-provider-integration/plan.md",
+  "type": "DOC",
+  "confidence": "high",
+  "manifest_override": false,
+  "title": "Manifest Provider Integration — Replace All Providers",
+  "summary": "Implementation plan replacing all 8 LLM providers with a single Manifest smart-router provider across 4 strictly sequential phases.",
+  "scope": ["Manifest provider", "LLM provider replacement", "model routing", "OpenAI-compatible API", "provider factory", "cost/analytics tracking"],
+  "cross_refs": ["./phase-01-manifest-provider-and-config.md", "./phase-02-routing-and-factory.md", "./phase-03-cleanup-old-providers-and-cost.md", "./phase-04-docs-and-testing.md", "0416-2130-gateway-features-unified-api-routing-analytics"],
+  "locked": false,
+  "precedence": null,
+  "notes": ""
+}

@@ -1,0 +1,32 @@
+{
+  "source_path": "/Users/ddphuong/Projects/next-labs/llm-gateway/plans/0416-2130-gateway-features-unified-api-routing-analytics/phase-05-integration-and-testing.md",
+  "type": "DOC",
+  "confidence": "medium",
+  "manifest_override": false,
+  "title": "Phase 5: Integration, Testing & Docs Update",
+  "summary": "Phase 5 work plan: integration and unit tests for routing, cost, and analytics, plus documentation updates across architecture, codebase summary, standards, and README.",
+  "scope": [
+    "integration testing",
+    "unit testing",
+    "model routing",
+    "cost calculation",
+    "AnalyticsDB",
+    "analytics endpoints",
+    "documentation updates"
+  ],
+  "cross_refs": [
+    "./plan.md",
+    "./phase-01-config-and-routing.md",
+    "./phase-02-provider-updates.md",
+    "./phase-03-analytics-engine.md",
+    "./phase-04-analytics-endpoints.md",
+    "docs/system-architecture.md",
+    "docs/codebase-summary.md",
+    "docs/code-standards.md",
+    "docs/project-roadmap.md",
+    "README.md"
+  ],
+  "locked": false,
+  "precedence": null,
+  "notes": "GSD phase-plan fragment under plans/. Contains FR/NFR-numbered 'Requirements' and 'Success Criteria' sections (PRD-like signals), but dominant content is implementation steps with LOC estimates, todo checklist, test matrix, risk assessment, and rollback plan — an execution work plan, not product requirements. Classified DOC per plans/ phase-fragment convention. Filename deviation: SHA-256 path-hash suffix omitted because process spawn is unavailable in this session (omp wrapper ENOENT); slug verified unique repo-wide, so sibling-collision avoidance is preserved without the suffix."
+}

@@ -1,0 +1,26 @@
+{
+  "source_path": "/Users/ddphuong/Projects/next-labs/llm-gateway/plans/0416-2130-gateway-features-unified-api-routing-analytics/phase-04-analytics-endpoints.md",
+  "type": "DOC",
+  "confidence": "medium",
+  "manifest_override": false,
+  "title": "Phase 4: Analytics REST Endpoints",
+  "summary": "Phase 4 implementation plan adding Bearer-auth analytics REST endpoints (summary, per-model stats, paginated requests) plus an OpenAI-compatible GET /v1/models listing over the Phase 3 analytics DB.",
+  "scope": [
+    "analytics REST endpoints",
+    "GET /v1/analytics/summary",
+    "GET /v1/analytics/models",
+    "GET /v1/analytics/requests",
+    "GET /v1/models",
+    "Bearer authentication",
+    "pagination",
+    "time filtering",
+    "analytics DB"
+  ],
+  "cross_refs": [
+    "./plan.md",
+    "./phase-03-analytics-engine.md"
+  ],
+  "locked": false,
+  "precedence": null,
+  "notes": "GSD-style phase execution plan under plans/ (todo checklist, implementation steps, modify/create file tables, risks) -> DOC per ingest convention. Contains embedded endpoint specs (query params, response schemas) and FR/NFR-4.x requirements that carry SPEC-like signals, but dominant purpose is phase execution guidance rather than a durable contract; synthesizer may lift endpoint contracts as technical constraints. No frontmatter; status checkbox unchecked."
+}

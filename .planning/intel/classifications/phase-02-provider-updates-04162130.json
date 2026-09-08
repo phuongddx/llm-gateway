@@ -1,0 +1,13 @@
+{
+  "source_path": "/Users/ddphuong/Projects/next-labs/llm-gateway/plans/0416-2130-gateway-features-unified-api-routing-analytics/phase-02-provider-updates.md",
+  "type": "DOC",
+  "confidence": "medium",
+  "manifest_override": false,
+  "title": "Phase 2: Provider Updates — Base Class + 5 New Providers",
+  "summary": "Implementation plan for phase 2: refactor the provider base class to yield usage tuples and add five OpenAI-compatible providers via a shared base class.",
+  "scope": ["provider base class", "usage metadata extraction", "OpenAI-compatible providers", "provider factory", "Gemini provider", "GLM provider", "MiniMax provider", "DeepSeek provider", "MoonshotAI provider", "ByteDance Doubao provider", "token streaming"],
+  "cross_refs": ["./plan.md", "./phase-01-config-and-routing.md"],
+  "locked": false,
+  "precedence": null,
+  "notes": "Phase-NN plan fragment under plans/; no frontmatter. Contains SPEC-like signals (FR/NFR requirements, UsageData schema, chat_stream interface contract) but dominant structure is an execution plan: numbered implementation steps, todo checklist, Status: [ ], LOC estimates, file create/modify tables. Classified DOC per plan-fragment convention; phase requirements appear delegated from parent plan.md (cross-referenced). SHA-256 source_hash not computable (no shell access in classifier env; hub process spawner ENOENT) — filename uses parent-dir timestamp 04162130 as collision discriminator, matching sibling convention (plan-04192337.json); source_path field is authoritative identity."
+}

@@ -1,0 +1,22 @@
+{
+  "source_path": "plans/0417-2203-playground-web-ui/phase-04.md",
+  "type": "DOC",
+  "confidence": "medium",
+  "manifest_override": false,
+  "title": "Phase 4: Testing + Integration Verification",
+  "summary": "Phase plan verifying the playground web UI end-to-end against the live gateway: adds route/static-file tests, a manual integration checklist, and regression checks.",
+  "scope": [
+    "playground web UI",
+    "integration testing",
+    "route tests",
+    "static file serving",
+    "manual verification checklist",
+    "test regression"
+  ],
+  "cross_refs": [
+    "tests/test_playground.py"
+  ],
+  "locked": false,
+  "precedence": null,
+  "notes": "GSD phase-plan fragment (files to create, pytest cases, manual checklist, phase success criteria). Path convention (plans/**/phase-NN) and content agree on DOC. Success criteria are phase verification gates, not product acceptance criteria, so not PRD; test snippets are implementation tasks, not API/schema contracts, so not SPEC. No frontmatter present."
+}

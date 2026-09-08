@@ -1,0 +1,22 @@
+{
+  "source_path": "/Users/ddphuong/Projects/next-labs/llm-gateway/plans/0417-2203-playground-web-ui/phase-03.md",
+  "type": "DOC",
+  "confidence": "medium",
+  "manifest_override": false,
+  "title": "Phase 3: Frontend — JS Logic (Streaming, Models, localStorage)",
+  "summary": "Implementation plan for the playground frontend JavaScript: auth flow, SSE streaming chat, model fetching, markdown rendering, and localStorage conversation persistence.",
+  "scope": [
+    "playground web UI",
+    "SSE streaming",
+    "chat completions client",
+    "auth flow",
+    "model fetching",
+    "markdown rendering",
+    "localStorage conversation persistence",
+    "sampling parameters"
+  ],
+  "cross_refs": [],
+  "locked": false,
+  "precedence": null,
+  "notes": "GSD phase plan fragment under plans/. Faint PRD signal (Success Criteria checklist) and SPEC signal (code/schema sketches), but dominant content is an execution work plan (Files to Create, module breakdown with line budgets, implementation details). No frontmatter, no user stories, no Context/Decision/Consequences. Classified DOC per plans/ convention."
+}

@@ -1,0 +1,12 @@
+{
+  "source_path": "/Users/ddphuong/Projects/next-labs/llm-gateway/docs/code-standards.md",
+  "type": "DOC",
+  "confidence": "high",
+  "manifest_override": false,
+  "title": "Code Standards",
+  "summary": "Coding standards and conventions for the llm-gateway Python codebase: naming, file organization, code style, provider-extension steps, error-handling patterns, and testing guidelines.",
+  "scope": ["code standards", "naming conventions", "file organization", "Python code style", "provider extension", "error handling", "testing guidelines"],
+  "cross_refs": ["./codebase-summary.md", "./system-architecture.md", "./deployment-guide.md"],
+  "locked": false,
+  "precedence": null
+}

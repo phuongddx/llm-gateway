@@ -1,0 +1,25 @@
+{
+  "source_path": "/Users/ddphuong/Projects/next-labs/llm-gateway/plans/0419-2337-manifest-provider-integration/phase-02-routing-and-factory.md",
+  "type": "DOC",
+  "confidence": "medium",
+  "manifest_override": false,
+  "title": "Phase 2: Routing & Factory",
+  "summary": "Completed implementation plan replacing the model routing table and provider factory with manifest-only routing, including passthrough for unknown models.",
+  "scope": [
+    "model routing table",
+    "provider factory",
+    "ManifestProvider",
+    "MODEL_ROUTING",
+    "create_provider",
+    "resolve_provider",
+    "/v1/models endpoint"
+  ],
+  "cross_refs": [
+    "analytics/routing.py",
+    "providers/__init__.py",
+    "providers/manifest.py"
+  ],
+  "locked": false,
+  "precedence": null,
+  "notes": "GSD phase-plan fragment under plans/ (Status: [x], all Todo List items checked). Contains SPEC-like technical detail (MODEL_ROUTING mapping, create_provider passthrough behavior, /v1/models contract) plus Requirements and Success Criteria sections, but dominant structure is a completed implementation work plan / historical record, so DOC per plans/ convention. No YAML frontmatter. Code-file mentions recorded in cross_refs."
+}

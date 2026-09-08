@@ -1,0 +1,24 @@
+{
+  "source_path": "/Users/ddphuong/Projects/next-labs/llm-gateway/plans/0419-2337-manifest-provider-integration/phase-01-manifest-provider-and-config.md",
+  "type": "DOC",
+  "confidence": "medium",
+  "manifest_override": false,
+  "title": "Phase 1: Manifest Provider & Config",
+  "summary": "Executed phase plan creating ManifestProvider extending OpenAICompatibleProvider for Manifest.build routing, consolidating per-provider API keys into a single MANIFEST_API_KEY in config.py.",
+  "scope": [
+    "ManifestProvider",
+    "OpenAICompatibleProvider",
+    "config.py",
+    "MANIFEST_API_KEY",
+    "Manifest.build smart model routing",
+    "provider API keys"
+  ],
+  "cross_refs": [
+    "providers/openai_compatible_base.py",
+    "config.py",
+    "providers/manifest.py"
+  ],
+  "locked": false,
+  "precedence": null,
+  "notes": "Phase-NN plan fragment under plans/ (contract hint: lean DOC). Fully executed plan (Status [x], all todos checked) with Implementation Steps, Todo List, and Related Code Files table. Contains 'Requirements' and 'Success Criteria' sections that superficially resemble PRD signals, but they are implementation-scoped constraints for a code change (inheritance, env var consolidation), not user/business requirements; no user stories, no ADR status/decision sections, no durable API/schema contracts. Dominant phase-plan structure resolves ambiguity toward DOC."
+}

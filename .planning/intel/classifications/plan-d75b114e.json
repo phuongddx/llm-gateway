@@ -1,0 +1,29 @@
+{
+  "source_path": "/Users/ddphuong/Projects/next-labs/llm-gateway/plans/0416-2130-gateway-features-unified-api-routing-analytics/plan.md",
+  "type": "DOC",
+  "confidence": "high",
+  "manifest_override": false,
+  "title": "LLM Gateway Enhancement: Unified API, Multi-Provider Routing, Analytics",
+  "summary": "Implementation plan transforming the gateway into a multi-model router: model-based routing, five new providers, SQLite usage analytics, and cost monitoring endpoints across five phases.",
+  "scope": [
+    "LLM gateway",
+    "model-based routing",
+    "multi-provider support",
+    "provider failover/retry",
+    "SQLite analytics (aiosqlite, WAL)",
+    "usage monitoring endpoints",
+    "cost calculation",
+    "GET /v1/models"
+  ],
+  "cross_refs": [
+    "./phase-01-config-and-routing.md",
+    "./phase-02-provider-updates.md",
+    "./phase-03-analytics-engine.md",
+    "./phase-04-analytics-endpoints.md",
+    "./phase-05-integration-and-testing.md",
+    "/Users/ddphuong/Projects/next-labs/llmgateway/docs/project-overview-pdr.md"
+  ],
+  "locked": false,
+  "precedence": null,
+  "notes": "GSD execution plan (phases table, dependency graph, file-ownership matrix, rollback). Frontmatter status 'pending' is plan lifecycle, not ADR status; '## Key Decisions' lists terse implementation choices without Context/Decision/Consequences structure — not ADR, decisions not locked. No user stories/acceptance criteria (PRD), no endpoint/schema contracts (SPEC). Matches ingest convention plans/plan.md → DOC. Source hash d75b114e (SHA-256 of full path) computed by Main because local process spawning is unavailable."
+}

@@ -1,0 +1,13 @@
+{
+  "source_path": "/Users/ddphuong/Projects/next-labs/llm-gateway/plans/0419-2337-manifest-provider-integration/phase-03-cleanup-old-providers-and-cost.md",
+  "type": "DOC",
+  "confidence": "medium",
+  "manifest_override": false,
+  "title": "Phase 3: Cleanup Old Providers & Cost",
+  "summary": "Phase 3 implementation plan: delete seven legacy provider files, reduce cost calculation to a stub returning 0.0, and drop the google-genai dependency for Manifest integration.",
+  "scope": ["legacy provider files", "cost calculation", "analytics/cost.py", "Manifest provider integration", "google-genai dependency"],
+  "cross_refs": [],
+  "locked": false,
+  "precedence": null,
+  "notes": "Execution-plan fragment under plans/ (phase 3 of 4), status complete, all todos checked. Mild SPEC-vs-DOC ambiguity (file-deletion tables, code snippet, success-criteria commands) resolved to DOC: tables and snippet are implementation steps of a work plan, not API/schema contracts; 'Requirements' are task directives, not user-facing. One technical constraint worth surfacing: calculate_cost() signature must be preserved returning 0.0 for analytics compatibility."
+}

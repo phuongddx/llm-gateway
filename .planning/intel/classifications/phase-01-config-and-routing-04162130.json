@@ -1,0 +1,13 @@
+{
+  "source_path": "/Users/ddphuong/Projects/next-labs/llm-gateway/plans/0416-2130-gateway-features-unified-api-routing-analytics/phase-01-config-and-routing.md",
+  "type": "DOC",
+  "confidence": "medium",
+  "manifest_override": false,
+  "title": "Phase 1: Config & Model Routing",
+  "summary": "Implementation plan for phase 1: per-provider API key settings, a MODEL_ROUTING lookup table, and a required model field on ChatRequest.",
+  "scope": ["per-provider API key configuration", "MODEL_ROUTING dict", "resolve_provider()", "ChatRequest model field", "provider factory", "analytics/routing.py", "backward compatibility"],
+  "cross_refs": ["./plan.md"],
+  "locked": false,
+  "precedence": null,
+  "notes": "Phase-NN plan fragment under plans/, no frontmatter. SPEC/PRD-like signals present (FR-1.x/NFR-1.x requirements, data-flow diagram, success criteria) but dominant structure is an execution plan: numbered implementation steps, todo checklist, modify/create file tables, risk assessment. Classified DOC per plan-fragment convention, consistent with sibling phase-02 classification. Notable constraint: ZAI = ZhipuAI routes to GLM provider, no separate provider. SHA-256 source_hash not computable in this classifier env (no shell tool; hub process spawner ENOENT) — filename uses parent-dir timestamp 04162130 as collision discriminator per established sibling convention (cf. phase-02-provider-updates-04162130.json, plan-04192337.json); source_path field is authoritative identity."
+}

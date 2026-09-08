@@ -1,0 +1,26 @@
+{
+  "source_path": "/Users/ddphuong/Projects/next-labs/llm-gateway/plans/0419-2337-manifest-provider-integration/phase-04-docs-and-testing.md",
+  "type": "DOC",
+  "confidence": "high",
+  "manifest_override": false,
+  "title": "Phase 4: Docs & Testing",
+  "summary": "Execution plan for Phase 4 of the Manifest provider integration: update documentation to Manifest-only architecture, fix tests, and verify e2e streaming.",
+  "scope": [
+    "Manifest provider integration",
+    "Manifest-only architecture",
+    "documentation updates",
+    "tests",
+    "end-to-end streaming",
+    "passthrough routing"
+  ],
+  "cross_refs": [
+    "README.md",
+    "docs/system-architecture.md",
+    "docs/codebase-summary.md",
+    ".env.example",
+    "tests/"
+  ],
+  "locked": false,
+  "precedence": null,
+  "notes": ""
+}

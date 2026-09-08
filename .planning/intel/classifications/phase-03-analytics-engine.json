@@ -1,0 +1,27 @@
+{
+  "source_path": "/Users/ddphuong/Projects/next-labs/llm-gateway/plans/0416-2130-gateway-features-unified-api-routing-analytics/phase-03-analytics-engine.md",
+  "type": "DOC",
+  "confidence": "medium",
+  "manifest_override": false,
+  "title": "Phase 3: Analytics Engine — SQLite Storage + Tracked Streaming",
+  "summary": "Phase 3 work plan: SQLite-backed request logging via tracked_stream generator wrapper recording tokens, latency, TTFT, and cost; extracts chat route from main.py into routes/chat.py.",
+  "scope": [
+    "analytics engine",
+    "SQLite request logging",
+    "tracked_stream generator",
+    "TTFT",
+    "cost calculation",
+    "request_logs schema",
+    "model pricing",
+    "routes/chat.py",
+    "provider failover retry"
+  ],
+  "cross_refs": [
+    "./plan.md",
+    "./phase-01-config-and-routing.md",
+    "./phase-02-provider-updates.md"
+  ],
+  "locked": false,
+  "precedence": null,
+  "notes": "GSD phase-plan fragment under plans/. Competing signals: PRD-like '## Requirements' with FR-3.x/NFR-3.x and Success Criteria; SPEC-like SQL DDL schema (request_logs, model_pricing) and AnalyticsDB/module contracts. Dominant content is an execution work plan (implementation steps with inline code, LOC estimates, todo checklist, risk table) — contracts are embedded work items, not a standalone spec. Classified DOC per plans/ phase-fragment convention, consistent with sibling phase-05-integration-and-testing.json from the same plan directory. Filename deviation: SHA-256 path-hash suffix omitted because process spawn is unavailable in this session (omp wrapper ENOENT); slug verified unique repo-wide via glob, so collision avoidance holds without the suffix."
+}

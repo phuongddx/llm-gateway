@@ -1,0 +1,13 @@
+{
+  "source_path": "/Users/ddphuong/Projects/next-labs/llm-gateway/plans/0417-2203-playground-web-ui/phase-02.md",
+  "type": "DOC",
+  "confidence": "high",
+  "manifest_override": false,
+  "title": "Phase 2: Frontend — HTML Structure + CSS Styling",
+  "summary": "Implementation plan for playground web UI phase 2: HTML shell with dark terminal aesthetic, CSS design tokens, responsive layout, login overlay, and chat/sidebar structure.",
+  "scope": ["playground web UI", "HTML structure", "CSS styling", "design tokens", "login overlay", "sidebar", "chat area", "responsive layout", "streaming cursor", "code highlighting"],
+  "cross_refs": [],
+  "locked": false,
+  "precedence": null,
+  "notes": "Phase-NN plan fragment under plans/; no frontmatter. Mild PRD-like signal (## Success Criteria) but dominant structure is an execution plan: Files to Create with LOC estimates, HTML structure tree, CSS layout/pattern specs, CDN dependency list, Status: pending. Filename uses parent-dir timestamp 04172203 as collision discriminator instead of SHA-256 source_hash — no shell access in classifier env (hub process spawner ENOENT), matching sibling convention (phase-02-provider-updates-04162130.json); source_path field is authoritative identity."
+}

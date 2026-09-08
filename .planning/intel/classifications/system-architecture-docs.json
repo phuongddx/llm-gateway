@@ -1,0 +1,13 @@
+{
+  "source_path": "/Users/ddphuong/Projects/next-labs/llm-gateway/docs/system-architecture.md",
+  "type": "SPEC",
+  "confidence": "medium",
+  "manifest_override": false,
+  "title": "System Architecture",
+  "summary": "Describes the LLM Gateway's architecture: request flow, provider abstraction and model routing, SSE streaming, authentication, analytics, configuration, and web playground.",
+  "scope": ["LLM Gateway", "FastAPI", "provider abstraction", "model routing", "SSE streaming", "authentication", "analytics", "SQLite", "web playground", "configuration"],
+  "cross_refs": ["./codebase-summary.md", "./code-standards.md", "./deployment-guide.md"],
+  "locked": false,
+  "precedence": null,
+  "notes": "No frontmatter or filename convention; docs/ path leans DOC, but dominant content signals are SPEC (analytics endpoint tables with response shapes, request/response schemas, SSE protocol fields, SQLite request_logs data model, env-var config contracts); SPEC wins over DOC per precedence tie-break. Filename suffix uses parent-dir disambiguator 'docs' instead of SHA-256(path) prefix: no shell/execution tool available in this environment (hub process spawn broken, ENOENT), basename is unique repo-wide, and this matches the path-derived-id precedent set by sibling classification plan-04192337.json."
+}

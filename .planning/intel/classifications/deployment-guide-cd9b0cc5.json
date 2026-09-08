@@ -1,0 +1,26 @@
+{
+  "source_path": "/Users/ddphuong/Projects/next-labs/llm-gateway/docs/deployment-guide.md",
+  "type": "DOC",
+  "confidence": "high",
+  "manifest_override": false,
+  "title": "Deployment Guide",
+  "summary": "Runbook covering local development setup, environment variable configuration, production deployment with uvicorn/systemd, planned Docker, ngrok exposure, and troubleshooting for the LLM gateway.",
+  "scope": [
+    "deployment",
+    "environment variables",
+    "uvicorn",
+    "systemd",
+    "Docker",
+    "ngrok",
+    "LLM gateway",
+    "analytics database",
+    "provider API keys"
+  ],
+  "cross_refs": [
+    "./project-overview-pdr.md",
+    "./system-architecture.md",
+    "./code-standards.md"
+  ],
+  "locked": false,
+  "precedence": null
+}

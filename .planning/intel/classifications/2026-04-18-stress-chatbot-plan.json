@@ -1,0 +1,23 @@
+{
+  "source_path": "docs/journals/2026-04-18-stress-chatbot-plan.md",
+  "type": "DOC",
+  "confidence": "high",
+  "manifest_override": false,
+  "title": "2026-04-18 Stress Chatbot Plan",
+  "summary": "Work journal recording the planning session for a stress-support chatbot MVP on llm-gateway: decisions, risks, and next steps.",
+  "scope": [
+    "stress-support chatbot",
+    "llm-gateway",
+    "Gemma 4 E4B instruct",
+    "vLLM",
+    "/v1/stress/chat route",
+    "crisis gating",
+    "document retrieval (RAG)"
+  ],
+  "cross_refs": [
+    "plans/260418-1132-stress-support-chatbot-rag-mvp/"
+  ],
+  "locked": false,
+  "precedence": null,
+  "notes": "Dated journal under docs/journals/ with What Happened/Risks/Next structure. Contains a '## Decisions' section (ADR-like signal) but it recaps decisions recorded in the referenced plan folder, not a standalone decision record; journal signals dominate. Not locked; decisions carry no ADR precedence."
+}
