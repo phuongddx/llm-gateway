@@ -1,0 +1,39 @@
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  # DEPL-03 "lint" — post-research decision (CONTEXT 2026-09-08)
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7      # v7.0.1 current [VERIFIED: api.github.com]
+      - uses: actions/setup-python@v7  # v7.0.0 current [VERIFIED: api.github.com]
+        with:
+          python-version: "3.12"
+      - run: pip install ruff==0.16.6  # CI-only, pinned per checkpoint decision (Task 2); NOT into requirements.txt (NFR-02 + slim image)
+      - run: ruff check .
+
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false                # see both legs' results even if one fails
+      matrix:
+        python-version: ["3.12", "3.14"]   # both stable in setup-python manifest [VERIFIED]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip                  # hashes requirements.txt by default [CITED: setup-python README]
+      - run: pip install -r requirements.txt
+      - run: pytest -q                # exit 0 pass / 1 fail / 2 collection error [VERIFIED: local exit-code probes]
+
+  docker-build:
+    runs-on: ubuntu-latest            # Docker preinstalled on ubuntu images [CITED: runner-images README]
+    steps:
+      - uses: actions/checkout@v7
+      - run: docker build -t llm-gateway:ci .
