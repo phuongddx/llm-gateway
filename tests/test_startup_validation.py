@@ -32,6 +32,11 @@ def test_rate_limit_validator_accepts_multi_limit():
     assert s.rate_limit == "60/minute, 1000/hour"
 
 
+def test_rate_limit_per_key_validator_rejects_garbage():
+    with pytest.raises(ValidationError, match="RATE_LIMIT_PER_KEY"):
+        _settings(rate_limit_per_key="bogus/zzz")
+
+
 def test_analytics_queue_size_validator_rejects_zero():
     """ANALYTICS_QUEUE_SIZE=0 would unbound asyncio.Queue — reject at construction."""
     with pytest.raises(ValidationError, match="ANALYTICS_QUEUE_SIZE"):
