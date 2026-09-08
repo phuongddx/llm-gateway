@@ -3,16 +3,16 @@ gsd_state_version: "1.0"
 current_phase: 4
 current_phase_name: Observability & Resilience
 status: executing
-stopped_at: Completed 04-02-PLAN.md
-last_updated: "2026-09-08T11:49:25.463Z"
+stopped_at: Completed 04-03-PLAN.md
+last_updated: "2026-09-08T11:57:33.208Z"
 last_activity: 2026-09-08
 last_activity_desc: Phase 4 execution started
-state_head: 3e04fbb4cba87fd3ab38b8194050e1db32ff9ce0
+state_head: 6df8ea452227ea0867bae85cbb5ff55bf5ddd6b2
 progress:
   total_phases: 6
   completed_phases: 0
   total_plans: 12
-  completed_plans: 10
+  completed_plans: 11
   percent: 0
 ---
 
@@ -41,7 +41,7 @@ See: .planning/PROJECT.md (updated 2026-09-08)
 ## Current Position
 
 Phase: 4 (Observability & Resilience) — EXECUTING
-Plan: 3 of 4
+Plan: 4 of 4
 Status: Ready to execute
 Last activity: 2026-09-08 — Phase 4 execution started
 
@@ -83,6 +83,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 03 P03-02 | 35min | 3 tasks | 13 files |
 | Phase 04 P01 | 40min | 2 tasks | 7 files |
 | Phase 04 P02 | 25min | 2 tasks | 3 files |
+| Phase 04 P03 | 35min | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -118,6 +119,7 @@ Recent decisions affecting current work:
 - [Phase 4]: [Phase 4]: 04-01: metrics.py render() fixed double-cumulative histogram bug found via boundary test — buckets[i] emitted directly, not re-summed
 - [Phase 4]: [Phase 4]: 04-01: /health split into /health/live (no deps) + /health/ready (reads app.state.analytics_db/analytics_writer presence); Dockerfile/Makefile healthchecks repointed to /health/ready
 - [Phase 4]: [Phase 4]: 04-02: max_retries=0 + tenacity AsyncRetrying wraps only the pre-stream create() call (allow-list predicate, reraise=True) — closes a pre-existing silent ZAI-3 gap where the SDK's own default retry could retry a z.ai quota/auth failure first
+- [Phase 4]: Per-key rate limit uses a callable (lambda) limit_value instead of a bare string, since slowapi parses plain-string limits once at decoration/import time — required for RATE_LIMIT_PER_KEY to be genuinely runtime-configurable and monkeypatch-testable
 
 ### Pending Todos
 
@@ -140,6 +142,6 @@ Items acknowledged and deferred at milestone close, most recent first:
 
 ## Session Continuity
 
-Last session: 2026-09-08T11:49:25.432Z
-Stopped at: Completed 04-02-PLAN.md
+Last session: 2026-09-08T11:57:33.179Z
+Stopped at: Completed 04-03-PLAN.md
 Resume file: None
