@@ -27,7 +27,7 @@ stop:
 
 # Health check
 health:
-	@curl -sf http://localhost:8000/health && echo "" || echo "Server not responding"
+	@curl -sf http://localhost:8000/health/ready && echo "" || echo "Server not responding"
 
 # Run all tests
 test:

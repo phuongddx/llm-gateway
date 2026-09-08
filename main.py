@@ -3,13 +3,14 @@ import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
+import metrics as gateway_metrics
 from analytics.db import AnalyticsDB
 from analytics.writer import AnalyticsWriter
 from config import settings
@@ -84,9 +85,27 @@ app.add_middleware(
 )
 
 
-@app.get("/health")
-async def health():
+@app.get("/metrics")
+async def get_metrics():
+    return Response(content=gateway_metrics.render(), media_type="text/plain; version=0.0.4")
+
+
+@app.get("/health/live")
+async def health_live():
     return {"status": "ok"}
+
+
+@app.get("/health/ready")
+async def health_ready(request: Request):
+    db = getattr(request.app.state, "analytics_db", None)
+    writer = getattr(request.app.state, "analytics_writer", None)
+    if db is None or writer is None:
+        return Response(
+            status_code=503,
+            content='{"status":"not_ready"}',
+            media_type="application/json",
+        )
+    return {"status": "ready"}
 
 
 # Mount route routers (deferred imports to avoid circular deps)

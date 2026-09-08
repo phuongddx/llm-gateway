@@ -27,6 +27,6 @@ EXPOSE 8000
 # exit 0 = healthy, 1 = unhealthy; defaults: interval 30s, timeout 30s, retries 3
 # [CITED: docs.docker.com/reference/dockerfile §HEALTHCHECK]
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-  CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3)" || exit 1
+  CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/ready', timeout=3)" || exit 1
 # exec form → uvicorn is PID 1, receives SIGTERM directly (verified graceful)
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]

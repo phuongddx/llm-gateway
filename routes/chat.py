@@ -10,6 +10,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
+import metrics
 from analytics.cost import calculate_cost, estimate_credits
 from analytics.routing import resolve_provider
 from config import settings
@@ -115,6 +116,8 @@ async def _tracked_stream(
         credits_used = estimate_credits(
             provider_name, model_id, usage_data or {}, datetime.now(timezone.utc)
         )
+        status = "error" if error_msg else "success"
+        metrics.record_request(provider_name, model_id, status, latency_ms / 1000.0)
 
         # Enqueue the log row — non-blocking on the bounded analytics queue
         # (the finally runs exactly once per generator, incl. client disconnect)
@@ -130,7 +133,7 @@ async def _tracked_stream(
                 "ttft_ms": ttft_ms,
                 "cost_usd": cost_usd,
                 "credits_used": credits_used,
-                "status": "error" if error_msg else "success",
+                "status": status,
                 "error_message": error_msg,
             })
 
