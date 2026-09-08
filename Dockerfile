@@ -17,7 +17,7 @@ WORKDIR /app
 RUN groupadd --system gateway && useradd --system --gid gateway gateway \
     && mkdir -p /app/data && chown gateway:gateway /app/data
 COPY --from=builder /opt/venv /opt/venv
-COPY main.py config.py rate_limiter.py requirements.txt ./
+COPY main.py config.py rate_limiter.py ./
 COPY analytics ./analytics
 COPY routes ./routes
 COPY providers ./providers
