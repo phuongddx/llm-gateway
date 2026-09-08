@@ -132,11 +132,11 @@ Plans:
   3. `docs/deployment-guide.md` documents the Docker/Compose deployment and the current env surface (`MANIFEST_API_KEY`, `ZAI_CODING_API_KEY`, credit quotas, `LLM_API_KEY` fallback) — no stale per-provider key/base-URL tables
   4. `docs/code-standards.md` file tree and the "Adding a New Provider" recipe match the shipped providers (base, openai_compatible_base, manifest, zai_coding — no pricing-table step)
 
-**Plans**: 3 plans
+**Plans**: 1/3 plans executed
 Plans:
 **Wave 1**
 
-- [ ] 05-01-PLAN.md — ROUT-01 routing decision regression test + PROJECT.md locked decision record (ROUT-01)
+- [x] 05-01-PLAN.md — ROUT-01 routing decision regression test + PROJECT.md locked decision record (ROUT-01)
 - [ ] 05-02-PLAN.md — project-overview-pdr.md + project-roadmap.md refreshed to two-provider architecture, superseded FRs marked historical (DOCS-01)
 - [ ] 05-03-PLAN.md — deployment-guide.md + code-standards.md refreshed to real Docker/Compose deployment, env surface, and provider layout (DOCS-02)
 
@@ -164,5 +164,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 (optional)
 | 2. Analytics Retention & Storage Lifecycle | 3/3 | Complete    | 2026-09-08 |
 | 3. Containerized Deployment & CI | 2/2 | Complete    | 2026-09-08 |
 | 4. Observability & Resilience | 4/4 | Complete    | 2026-09-08 |
-| 5. Routing Decision & Documentation Refresh | 0/3 | Planned | - |
+| 5. Routing Decision & Documentation Refresh | 1/3 | In Progress|  |
 | 6. Stress-Support Chatbot MVP (Optional) | 0/? | Deferred (preconditions unmet) | - |

@@ -72,7 +72,7 @@ Derived from ingest open items: production-readiness backlog, analytics retentio
 
 ### Routing & Documentation (Phase 5)
 
-- [ ] **ROUT-01**: The `model="auto"` fate (keep, pin to an explicit model, or remove — it rides Manifest's 2026-09-01-deprecated prompt-complexity router) is decided with the user, recorded in PROJECT.md Key Decisions, and implemented with routing behavior + tests matching the recorded decision
+- [x] **ROUT-01**: The `model="auto"` fate (keep, pin to an explicit model, or remove — it rides Manifest's 2026-09-01-deprecated prompt-complexity router) is decided with the user, recorded in PROJECT.md Key Decisions, and implemented with routing behavior + tests matching the recorded decision
 - [ ] **DOCS-01**: `docs/project-overview-pdr.md` and `docs/project-roadmap.md` describe the current two-provider (Manifest + zai-coding) architecture; superseded provider/pricing requirements explicitly marked historical
 - [ ] **DOCS-02**: `docs/deployment-guide.md` documents the Docker/Compose deployment and current env surface (no stale per-provider key/base-URL tables); `docs/code-standards.md` file tree and "Adding a New Provider" recipe match the shipped providers (no pricing step)
 
@@ -128,7 +128,7 @@ v1 (active) requirements → phases. Baseline and Historical sections are intent
 | OBSV-01 | Phase 4 | Complete |
 | OBSV-02 | Phase 4 | Complete |
 | OBSV-03 | Phase 4 | Complete |
-| ROUT-01 | Phase 5 | Pending |
+| ROUT-01 | Phase 5 | Complete |
 | DOCS-01 | Phase 5 | Pending |
 | DOCS-02 | Phase 5 | Pending |
 | SCB-01 | Phase 6 (optional, v2-gated) | Deferred |
