@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LLM Gateway Playground</title>
+  <link rel="stylesheet" href="/static/playground/playground.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11.11.1/styles/github-dark.min.css"
+        integrity="sha256-qCvHRUgP0mBAE8G4VwOQT6FP5pMh/BD7E4K0tOZNfg=" crossorigin="anonymous">
+  <script src="https://cdn.jsdelivr.net/npm/marked@15.0.7/marked.min.js"
+          integrity="sha256-nM0m+p0/FZw2JYqTlIJBln7/wWDdhKTmbPKI6ahE3S0=" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/highlight.js@11.11.1/highlight.min.js"
+          integrity="sha256-qOFJNxXwQ8Y8pt6YzqHm8I8gUGrvku3e+5Kln9G2WHU=" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/dompurify@3.2.4/dist/purify.min.js"
+          integrity="sha256-ockUIrg9DNxAe9A3dEEnqfXtt5NYKH7KLA6Hq2SgJ8M=" crossorigin="anonymous"></script>
+</head>
+<body>
+
+  <!-- Login Overlay -->
+  <div id="login-overlay">
+    <div class="login-card">
+      <h1>LLM Gateway</h1>
+      <p>Enter your API key to continue</p>
+      <form id="login-form">
+        <input type="password" id="api-key-input" placeholder="API Key" autocomplete="off" required>
+        <button type="submit" id="login-btn">Connect</button>
+        <p id="login-error" class="error-text" hidden></p>
+      </form>
+    </div>
+  </div>
+
+  <!-- Main App -->
+  <div id="app" hidden>
+    <!-- Sidebar -->
+    <aside id="sidebar">
+      <div class="sidebar-header">
+        <h2>Settings</h2>
+        <button id="sidebar-close" class="icon-btn" title="Close sidebar">&times;</button>
+      </div>
+
+      <div class="sidebar-section">
+        <label for="model-select">Model</label>
+        <select id="model-select"><option value="">Loading...</option></select>
+      </div>
+
+      <div class="sidebar-section">
+        <label for="system-prompt">System Prompt</label>
+        <textarea id="system-prompt" rows="4" placeholder="You are a helpful assistant..."></textarea>
+      </div>
+
+      <div class="sidebar-section params-panel">
+        <label>Temperature <span id="temp-val">0.7</span></label>
+        <input type="range" id="temperature" min="0" max="2" step="0.1" value="0.7">
+
+        <label>Max Tokens <span id="max-tokens-val">2048</span></label>
+        <input type="range" id="max-tokens" min="1" max="8192" step="1" value="2048">
+
+        <label>Top P <span id="top-p-val">0.9</span></label>
+        <input type="range" id="top-p" min="0" max="1" step="0.05" value="0.9">
+      </div>
+
+      <div class="sidebar-section">
+        <h3>Conversations</h3>
+        <div id="conversation-list"></div>
+      </div>
+
+      <div class="sidebar-footer">
+        <button id="new-chat-btn" class="btn-secondary">+ New Chat</button>
+      </div>
+    </aside>
+
+    <!-- Chat Area -->
+    <main id="chat-area">
+      <div id="chat-header">
+        <button id="sidebar-toggle" class="icon-btn" title="Toggle sidebar">&#9776;</button>
+        <span id="chat-title">New Conversation</span>
+      </div>
+
+      <div id="messages"></div>
+
+      <div id="input-area">
+        <div class="input-row">
+          <textarea id="user-input" placeholder="Type a message... (Enter to send, Shift+Enter for newline)" rows="1"></textarea>
+          <button id="send-btn">Send</button>
+          <button id="stop-btn" hidden>Stop</button>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="/static/playground/playground.js"></script>
+</body>
+</html>
