@@ -43,6 +43,28 @@ def test_analytics_queue_size_validator_rejects_negative():
         _settings(analytics_queue_size=-3)
 
 
+def test_analytics_retention_days_default_is_90():
+    """Documented default retention is 90 days when the env var is unset."""
+    assert _settings().analytics_retention_days == 90
+
+
+def test_analytics_retention_days_zero_accepted():
+    """0 = keep-forever opt-out is valid (unlike the queue-size knob's fatal 0)."""
+    assert _settings(analytics_retention_days=0).analytics_retention_days == 0
+
+
+def test_analytics_retention_days_negative_rejected():
+    """A negative TTL would purge fresh rows — import-time abort naming the env var."""
+    with pytest.raises(ValidationError, match="ANALYTICS_RETENTION_DAYS"):
+        _settings(analytics_retention_days=-3)
+
+
+def test_analytics_retention_days_non_integer_rejected():
+    """Non-integer TTLs fail pydantic parsing — no silent coercion into cutoff math."""
+    with pytest.raises(ValidationError):
+        _settings(analytics_retention_days="ninety")
+
+
 def test_settings_default_constructs_without_app_api_key():
     s = _settings()
     assert s.app_api_key == ""  # construction succeeds; lifespan is the abort point
