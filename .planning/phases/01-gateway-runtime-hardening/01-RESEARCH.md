@@ -597,16 +597,18 @@ assert err == {"message": "zai-coding quota exhausted — resets within the 5-ho
 
 All other claims in this research carry `[VERIFIED: ...]` (runtime probe against this repo's venv, or file+line quote read this session) or `[CITED: ...]` (official docs/spec) tags.
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Playground error-rendering verification has no automated harness**
    - What we know: the JS fix is two one-line changes at proven sites; the SSE frame shape is test-covered server-side.
    - What's unclear: nothing structural — but the browser rendering itself can only be confirmed manually.
    - Recommendation: planner adds an execution-time manual verification step (run `make dev`, force a zai quota/auth error or point the fake provider at an error, observe the human message — not `[object Object]`) in the RELI-03 task.
+   - Resolution (RESOLVED): adopted — 01-PLAN-01 `<verification>` ships this exact step as its "Manual-only (RELI-03d)" entry (make dev → http://localhost:8000/playground → request against a failing/fake provider → confirm the error bubble shows the human message, not "[object Object]").
 
 2. **Exact notice wording for the two no-key warnings**
    - What we know: semantics locked (log, never abort, name the keys/semantics); wording is implementation detail.
    - Recommendation: include the variable names (`ZAI_CODING_API_KEY`, `LLM_API_KEY`, `MANIFEST_API_KEY`) and the routing consequence in each message (as in Pattern 5) so operators can act without docs.
+   - Resolution (RESOLVED): adopted — 01-PLAN-02 Task 2 implements both notices with the Pattern 5 wording (names ZAI_CODING_API_KEY/LLM_API_KEY and MANIFEST_API_KEY/LLM_API_KEY plus the routing consequence), proven by the two caplog notice tests (test_no_effective_zai_key_logs_notice_no_abort, test_no_effective_manifest_key_logs_notice_no_abort).
 
 No blocking questions — all design grey areas were resolved in CONTEXT.md; the mechanics above are verified.
 
