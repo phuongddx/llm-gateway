@@ -16,6 +16,12 @@ class AnalyticsWriter:
     """
 
     def __init__(self, db, queue_size: int = 1000):
+        if queue_size < 1:
+            # asyncio.Queue treats maxsize <= 0 as UNBOUNDED — refuse instead
+            # of silently recreating the OOM hazard this writer exists to prevent.
+            raise ValueError(
+                f"queue_size must be >= 1 (got {queue_size}); 0 would unbound the queue"
+            )
         self._db = db
         self._queue: asyncio.Queue = asyncio.Queue(maxsize=queue_size)
         self._task: asyncio.Task | None = None

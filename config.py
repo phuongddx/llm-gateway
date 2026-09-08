@@ -50,6 +50,16 @@ class Settings(BaseSettings):
             raise ValueError(f"RATE_LIMIT parsed to zero limits: {self.rate_limit!r}")
         return self
 
+    @model_validator(mode="after")
+    def _validate_analytics_queue_size(self) -> "Settings":
+        """Fail fast on an unbounding queue size — asyncio.Queue treats maxsize<=0 as unbounded."""
+        if self.analytics_queue_size < 1:
+            raise ValueError(
+                f"ANALYTICS_QUEUE_SIZE must be >= 1 (got {self.analytics_queue_size}); "
+                "0 or negative would disable the queue bound"
+            )
+        return self
+
     def get_api_key(self, provider: str) -> str:
         """Return API key for provider. Dedicated key with llm_api_key fallback."""
         if provider == "manifest":

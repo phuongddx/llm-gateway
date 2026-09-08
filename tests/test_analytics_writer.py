@@ -75,6 +75,14 @@ async def test_error_stream_delivers_nested_frame_and_logs_row(
     assert recent["requests"][0]["status"] == "error"
 
 
+def test_constructor_rejects_nonpositive_queue_size():
+    """queue_size<=0 would unbound asyncio.Queue (maxsize<=0 = infinite) — refuse."""
+    with pytest.raises(ValueError, match="queue_size"):
+        AnalyticsWriter(None, queue_size=0)
+    with pytest.raises(ValueError, match="queue_size"):
+        AnalyticsWriter(None, queue_size=-3)
+
+
 # --- Queue unit suite (RELI-02b/c/d + edges) — direct AnalyticsWriter over the
 # --- shared analytics_db fixture, no HTTP layer (matches test_analytics_db.py).
 
