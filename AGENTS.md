@@ -96,7 +96,7 @@ prefix) becomes local `analytics_api_router`.
 | Path | Purpose |
 |---|---|
 | `routes/` | FastAPI routers — `chat.py` (chat completions + auth dependency), `analytics.py` (models/analytics endpoints) |
-| `analytics/` | `db.py` (SQLite/aiosqlite request-log storage + aggregation queries incl. `get_credits_summary()`), `cost.py` (cost stub `0.0` + z.ai credit estimation), `routing.py` (`MODEL_ROUTING` table + `resolve_provider`) |
+| `analytics/` | `db.py` (SQLite/aiosqlite request-log storage + aggregation queries incl. `get_credits_summary()`, plus TTL retention lifecycle — `purge_expired` batched delete + `auto_vacuum=INCREMENTAL` space reclamation), `cost.py` (cost stub `0.0` + z.ai credit estimation), `routing.py` (`MODEL_ROUTING` table + `resolve_provider`) |
 | `providers/` | Provider abstraction — `base.py` (ABC + TypedDicts), `openai_compatible_base.py` (shared OpenAI-wire impl), `manifest.py` (Manifest provider), `zai_coding.py` (z.ai coding provider), `__init__.py` (factory) |
 | `static/playground/` | Zero-build vanilla-JS SPA chat UI for manual testing, served at `GET /playground` and mounted at `/static` |
 | `tests/` | pytest suite — see Testing & QA below |
@@ -142,8 +142,12 @@ Single test file/function:
   native async generators; analytics writes go through the lifespan-owned
   bounded `AnalyticsWriter` queue (producers enqueue non-blocking; one consumer
   task serially drains, its task reference held on
-  `app.state.analytics_writer`) — never a per-request background task per
-  stream; never a bare unawaited coroutine.
+  `app.state.analytics_writer`; the same consumer task runs the retention
+  purge — TTL from `ANALYTICS_RETENTION_DAYS` (`0` = keep forever), once at
+  startup as its first action and then every 6 hours (`_PURGE_INTERVAL_S`
+  module constant), draining queued records between purge batches so streaming
+  and write accounting are never blocked by a purge) — never a per-request
+  background task per stream; never a bare unawaited coroutine.
 - **Error handling**: `HTTPException` for API-facing errors; broad
   `except Exception` around streaming/logging paths that must never crash the
   request, logged via `logger = logging.getLogger(__name__)` (per-module), with
@@ -183,7 +187,11 @@ Single test file/function:
   `_tracked_stream()`.
 - `routes/analytics.py` — `GET /v1/models`, `/v1/analytics/{summary,models,requests,credits}`.
 - `analytics/db.py` — `AnalyticsDB` (aiosqlite, WAL mode); `request_logs` schema
-  (incl. `credits_used`) + 3 indexes (`created_at`, `model`, `provider`).
+  (incl. `credits_used`) + 3 indexes (`created_at`, `model`, `provider`);
+  `purge_expired(retention_days)` — batched rowid-subquery `DELETE` with
+  per-batch commits, guarded `incremental_vacuum` loop and passive checkpoint —
+  with `PRAGMA auto_vacuum=INCREMENTAL` set at `initialize` before schema
+  creation (silently a no-op on pre-existing databases).
 - `providers/__init__.py` — `create_provider()` factory (dispatches
   `zai-coding` vs. Manifest; extension point documented above).
 - `.env.example` — canonical list of required/optional env vars (mirrors
@@ -191,7 +199,10 @@ Single test file/function:
   unset keeps GLM on Manifest), `ZAI_CREDITS_5H`/`ZAI_CREDITS_WEEK` (defaults
   `28000`/`140000`), `LLM_API_KEY` (fallback),
   `APP_API_KEY` (required), `CORS_ORIGINS`, `RATE_LIMIT` (default `60/minute`),
-  `ANALYTICS_DB_PATH` (default `data/analytics.db`).
+  `ANALYTICS_DB_PATH` (default `data/analytics.db`), `ANALYTICS_RETENTION_DAYS`
+  (default `90`, `0` = keep forever; rows older than the TTL purged at startup
+  and every 6 hours; one-time `sqlite3 data/analytics.db "VACUUM;"` with the
+  gateway stopped makes purged space reclaimable on legacy databases).
 
 ## Runtime/Tooling Preferences
 
