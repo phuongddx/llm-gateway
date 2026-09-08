@@ -49,7 +49,7 @@ Derived from ingest open items: production-readiness backlog, analytics retentio
 
 ### Reliability Hardening (Phase 1)
 
-- [ ] **RELI-01**: Operator starting the gateway without `APP_API_KEY` gets an immediate, actionable startup abort naming the missing variable — never a cryptic request-time SDK error; starting with no effective z.ai key logs an explicit notice (no abort) and GLM routes degrade to Manifest per the key-gate, preserving opt-in/rollback-by-unset semantics
+- [x] **RELI-01**: Operator starting the gateway without `APP_API_KEY` gets an immediate, actionable startup abort naming the missing variable — never a cryptic request-time SDK error; starting with no effective z.ai key logs an explicit notice (no abort) and GLM routes degrade to Manifest per the key-gate, preserving opt-in/rollback-by-unset semantics
 - [ ] **RELI-02**: Under concurrent multi-stream load, every client receives its full token stream and every completed request appears exactly once in `request_logs`; pending analytics writes stay bounded (capped queue with graceful handling) even when SQLite writes lag
 - [x] **RELI-03**: SSE error frames carry an OpenAI-style error object (message/type) while z.ai quota exhaustion and authentication failure remain distinctly identifiable; internal exception text never reaches clients
 
@@ -117,7 +117,7 @@ v1 (active) requirements → phases. Baseline and Historical sections are intent
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| RELI-01 | Phase 1 | Pending |
+| RELI-01 | Phase 1 | Complete |
 | RELI-02 | Phase 1 | In Progress |
 | RELI-03 | Phase 1 | Complete |
 | ANLT-01 | Phase 2 | Pending |

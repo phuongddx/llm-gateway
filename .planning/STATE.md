@@ -3,16 +3,16 @@ gsd_state_version: "1.0"
 current_phase: 1
 current_phase_name: Gateway Runtime Hardening
 status: executing
-stopped_at: Completed 01-01-PLAN.md
-last_updated: "2026-09-08T04:53:51.080Z"
+stopped_at: Completed 01-02-PLAN.md
+last_updated: "2026-09-08T05:05:29.243Z"
 last_activity: 2026-09-08
 last_activity_desc: Phase 1 execution resumed (wave continue)
-state_head: 91b52a26f259f91f621b0655372625d110969d4f
+state_head: f23fa29c3b73209b287863b87c1c9fcb41aed066
 progress:
   total_phases: 6
   completed_phases: 0
   total_plans: 3
-  completed_plans: 1
+  completed_plans: 2
   percent: 0
 ---
 
@@ -41,7 +41,7 @@ See: .planning/PROJECT.md (updated 2026-09-08)
 ## Current Position
 
 Phase: 1 (Gateway Runtime Hardening) — EXECUTING
-Plan: 2 of 3
+Plan: 3 of 3
 Status: Ready to execute
 Last activity: 2026-09-08 — Phase 1 execution resumed (wave continue)
 
@@ -72,6 +72,7 @@ Progress: [░░░░░░░░░░] 0%
 | Plan | Duration | Tasks | Files |
 |------|----------|-------|-------|
 | Phase 01 P1 | 9 min | 3 tasks | 10 files |
+| Phase 01 P02 | 6 min | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -84,6 +85,9 @@ Recent decisions affecting current work:
 - [Bootstrap]: Ingested PRD requirements split 20 Baseline (implemented, not routed) / 8 Historical (superseded, never routed); milestone v1 scope derived from the 8 ingest open items
 - [Phase 1]: 01-01: analytics writes via lifespan-owned bounded AnalyticsWriter (drop-newest, warn every 50, drain-bounded stop); shutdown order writer.stop() before db.close()
 - [Phase 1]: 01-01: SSE error frames are nested OpenAI objects {message,type[,code]}; message strings byte-identical (ZAI-3); import os deferred to Plan 02 per phase artifact inventory
+- [Phase 01]: 01-02: RATE_LIMIT validated in Settings via limits.parse_many (slowapi's own parser) — fails at import of config before any Limiter
+- [Phase 01]: 01-02: validation split honored — APP_API_KEY/ANALYTICS_DB_PATH aborts in lifespan; missing zai/manifest keys are warnings, never aborts (zero-key runs preserved)
+- [Phase 01]: 01-02: Settings hides input values in ValidationErrors (hide_input_in_errors) — abort tracebacks never echo key contents, even partially
 
 ### Pending Todos
 
@@ -106,6 +110,6 @@ Items acknowledged and deferred at milestone close, most recent first:
 
 ## Session Continuity
 
-Last session: 2026-09-08T04:53:51.067Z
-Stopped at: Completed 01-01-PLAN.md
+Last session: 2026-09-08T05:05:05.229Z
+Stopped at: Completed 01-02-PLAN.md
 Resume file: None
