@@ -1,10 +1,12 @@
 """Tests for analytics retention — TTL purge lifecycle (knob → lifespan → purge)."""
 
 import asyncio
+import json
 import logging
 import sqlite3
 import time
 from datetime import datetime, timedelta, timezone
+from unittest.mock import patch
 
 import pytest
 
@@ -377,3 +379,187 @@ async def test_purge_between_batches_hook_awaited_per_batch(analytics_db):
 
     assert len(calls) == 3  # batches of 1000 + 1000 + 500: hook after each commit
     assert deleted == 2500
+
+# --- Integration proofs (02-02 Task 2) ---
+
+
+def _stream_tokens(text: str) -> list[str]:
+    """Token payloads from an SSE body, in stream order."""
+    return [
+        json.loads(line[len("data: "):])["token"]
+        for line in text.splitlines()
+        if line.startswith("data: ") and line[len("data: "):] != "[DONE]"
+    ]
+
+
+@pytest.mark.asyncio
+async def test_endpoints_serve_retained_data_after_purge(
+    client, auth_headers, analytics_db
+):
+    """After a purge pass, all four analytics endpoints report ONLY retained
+    data — totals, model rows, request ids, and 5h/7d credit aggregates
+    exclude the purged rows while correctly including the fresh ones."""
+    now = datetime.now(timezone.utc)
+    old_manifest = {
+        **_record(0),
+        "id": "purged-old-manifest",
+        "model": "gpt-4-turbo",  # a model only the purged row used
+        "prompt_tokens": 1000,
+        "completion_tokens": 500,
+        "total_tokens": 1500,
+        "created_at": (now - timedelta(days=91)).isoformat(),
+    }
+    old_zai = {
+        **_record(1),
+        "id": "purged-old-zai",
+        "provider": "zai-coding",
+        "model": "glm-5.3-flash",
+        "credits_used": 120.0,
+        "created_at": (now - timedelta(days=91)).isoformat(),  # outside 7d anyway
+    }
+    fresh_manifest = {
+        **_record(2),
+        "id": "fresh-manifest",
+        "model": "gpt-4o",
+        "prompt_tokens": 100,
+        "completion_tokens": 50,
+        "total_tokens": 150,
+        "created_at": (now - timedelta(hours=1)).isoformat(),
+    }
+    fresh_zai = {
+        **_record(3),
+        "id": "fresh-zai",
+        "provider": "zai-coding",
+        "model": "glm-5.3",
+        "prompt_tokens": 20,
+        "completion_tokens": 10,
+        "total_tokens": 30,
+        "credits_used": 50.0,
+        "created_at": (now - timedelta(hours=1)).isoformat(),  # inside 5h window
+    }
+    for row in (old_manifest, old_zai, fresh_manifest, fresh_zai):
+        await analytics_db.log_request(row)
+
+    assert await analytics_db.purge_expired(90) == 2
+
+    response = await client.get("/v1/analytics/summary", headers=auth_headers)
+    assert response.status_code == 200
+    summary = response.json()
+    assert summary["total_requests"] == 2
+    assert summary["total_prompt_tokens"] == 120  # 100 + 20; the 1000 is purged
+    assert summary["total_completion_tokens"] == 60  # 50 + 10; the 500 is purged
+    assert summary["total_tokens"] == 180
+
+    response = await client.get("/v1/analytics/models", headers=auth_headers)
+    assert response.status_code == 200
+    models = response.json()
+    assert {row["model"] for row in models["models"]} == {"gpt-4o", "glm-5.3"}
+
+    response = await client.get(
+        "/v1/analytics/requests?limit=50", headers=auth_headers
+    )
+    assert response.status_code == 200
+    requests_page = response.json()
+    assert requests_page["total"] == 2
+    assert {row["id"] for row in requests_page["requests"]} == {
+        "fresh-manifest",
+        "fresh-zai",
+    }
+
+    response = await client.get("/v1/analytics/credits", headers=auth_headers)
+    assert response.status_code == 200
+    credits = response.json()
+    assert credits["window_5h"]["credits_used"] == pytest.approx(50.0)
+    assert credits["window_7d_rolling"]["credits_used"] == pytest.approx(50.0)
+    assert credits["by_model"]["glm-5.3"]["credits_used"] == pytest.approx(50.0)
+    assert credits["by_model"]["glm-5.3"]["requests"] == 1
+    assert "glm-5.3-flash" not in credits["by_model"]
+
+
+@pytest.mark.asyncio
+async def test_burst_streams_unblocked_during_purge(
+    client, auth_headers, analytics_writer, analytics_db
+):
+    """20 concurrent streams while a 0.03s-tick writer purges 1500 expired
+    rows: every stream delivers its full token sequence + [DONE], exactly-once
+    rows, zero drops — purging never blocks or delays streaming."""
+    expired = [
+        {
+            **_record(i),
+            "created_at": (datetime.now(timezone.utc) - timedelta(days=91)).isoformat(),
+        }
+        for i in range(1500)
+    ]
+    await _seed_bulk(analytics_db, expired)
+
+    def _provider_for(i: int):
+        class BurstProvider:
+            async def chat_stream(self, messages, system_prompt, params=None):
+                yield (f"tok{i}-a", None)
+                yield (f"tok{i}-b", None)
+                yield ("", {"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2})
+
+        return BurstProvider()
+
+    original_log = analytics_db.log_request
+
+    async def slowed_log(record):
+        await asyncio.sleep(0.005)  # deterministic lag — never a blocking sleep
+        await original_log(record)
+
+    analytics_db.log_request = slowed_log  # the fixture writer's db — slows its drain
+
+    from main import app
+
+    # Routes read app.state per request — the swap takes effect for every
+    # burst request. The 0.03s tick makes purges interleave with the streams.
+    ticking = AnalyticsWriter(
+        analytics_db, queue_size=1000, retention_days=90, purge_interval_s=0.03
+    )
+    ticking.start()
+    app.state.analytics_writer = ticking
+    try:
+        with patch(
+            "routes.chat.create_provider", side_effect=[_provider_for(i) for i in range(20)]
+        ), patch(
+            "routes.chat.resolve_provider", return_value=("manifest", "gpt-4o")
+        ):
+            responses = await asyncio.gather(*[
+                client.post(
+                    "/v1/chat/completions",
+                    json={
+                        "model": "gpt-4o",
+                        "messages": [{"role": "user", "content": "burst"}],
+                    },
+                    headers=auth_headers,
+                )
+                for _ in range(20)
+            ])
+        await ticking.wait_drained(5.0)
+        # The tick keeps firing: bounded wait for at least one post-startup
+        # purge (wait_drained can return mid-purge — the between-batches hook
+        # empties the queue before the pass ends; never wall-clock waits).
+        deadline = time.monotonic() + 2.0
+        while ticking.purges_run < 2:
+            if time.monotonic() >= deadline:
+                pytest.fail("periodic purge tick did not fire within 2s")
+            await asyncio.sleep(0.01)
+    finally:
+        app.state.analytics_writer = analytics_writer
+        await ticking.stop()
+
+    assert all(r.status_code == 200 for r in responses)
+    for r in responses:
+        assert r.text.endswith("data: [DONE]\n\n")
+    tokens_per_response = [_stream_tokens(r.text) for r in responses]
+    assert all(len(tokens) == 2 for tokens in tokens_per_response)
+    all_tokens = [token for tokens in tokens_per_response for token in tokens]
+    assert sorted(all_tokens) == sorted(
+        token for i in range(20) for token in (f"tok{i}-a", f"tok{i}-b")
+    )
+
+    recent = await analytics_db.get_recent(limit=100)
+    assert recent["total"] == 20  # exactly once; the 1500 expired rows are gone
+    assert len({row["id"] for row in recent["requests"]}) == 20
+    assert ticking.dropped == 0
+    assert ticking.purges_run >= 2  # purges actually interleaved with the burst
