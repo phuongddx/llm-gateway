@@ -54,16 +54,20 @@ Request flow for `POST /v1/chat/completions`:
    It measures latency/TTFT, calls `calculate_cost()` (`analytics/cost.py`,
    **always returns `0.0`** — Manifest bills internally) plus `estimate_credits()`
    (same module; per-request z.ai coding-plan credit estimate, `0.0` for
-   non-`zai-coding` traffic), and logs a row (including `credits_used`) via
-   `asyncio.create_task(analytics_db.log_request(...))` (fire-and-forget, but
-   the task reference is held and given `add_done_callback(_on_log_task_done)`
-   so failures are still logged, not silently GC'd).
+   non-`zai-coding` traffic), and logs a row (including `credits_used`) by
+   enqueuing it via `analytics_writer.enqueue(record)` — non-blocking on the
+   bounded queue sized by `ANALYTICS_QUEUE_SIZE` (drop-newest when full) —
+   drained by the single lifespan-owned consumer task that serially calls
+   `AnalyticsDB.log_request`; failures are logged by the writer, never
+   silently lost.
 7. Streaming errors are caught broadly, logged via `logging`, and surfaced to
-   the client as a generic `data: {"error": "Internal error processing request"}\n\n`
+   the client as a generic nested object
+   `data: {"error": {"message": "Internal error processing request", "type": "server_error"}}\n\n`
    — except `zai-coding`, which maps quota errors (HTTP 429 / code 1113) to
    "zai-coding quota exhausted — resets within the 5-hour window" and auth
-   failures (401/403) to "zai-coding authentication failed". Internal exception
-   text is never leaked over SSE.
+   failures (401/403) to "zai-coding authentication failed" (these zai frames
+   additionally carry a `"code"` key — `"zai_quota_exhausted"` /
+   `"zai_auth_failed"`). Internal exception text is never leaked over SSE.
 
 Provider hierarchy: `LLMProvider(ABC)` (`providers/base.py`, one abstract
 method `chat_stream`) → `OpenAICompatibleProvider` (`providers/openai_compatible_base.py`,
@@ -135,9 +139,11 @@ Single test file/function:
   `Optional[str]`), builtin generics (`list[dict]`, not `typing.List`),
   `TypedDict` for structured payloads (`UsageData`, `GenParams`).
 - **Async**: all I/O (DB, HTTP, route handlers) is `async def`; streaming uses
-  native async generators; fire-and-forget background work uses
-  `asyncio.create_task(...)` with the task reference **held** plus
-  `add_done_callback` for error visibility — never a bare unawaited coroutine.
+  native async generators; analytics writes go through the lifespan-owned
+  bounded `AnalyticsWriter` queue (producers enqueue non-blocking; one consumer
+  task serially drains, its task reference held on
+  `app.state.analytics_writer`) — never a per-request background task per
+  stream; never a bare unawaited coroutine.
 - **Error handling**: `HTTPException` for API-facing errors; broad
   `except Exception` around streaming/logging paths that must never crash the
   request, logged via `logger = logging.getLogger(__name__)` (per-module), with
@@ -217,8 +223,13 @@ Single test file/function:
   `auth_headers()` (returns `{"Authorization": "Bearer changeme"}`),
   `mock_provider()` (returns a `MockProvider(LLMProvider)` helper),
   `analytics_db(tmp_path)` (in-memory `AnalyticsDB(":memory:")`, init/close),
-  `client(analytics_db)` (lazily imports `from main import app`, monkeypatches
-  `app.state.analytics_db`, yields an `httpx.AsyncClient`).
+  `analytics_writer(analytics_db)` (constructs + starts a real
+  `AnalyticsWriter` over the in-memory DB, injects
+  `app.state.analytics_writer`, stops it on teardown),
+  `client(analytics_db, analytics_writer)` (lazily imports
+  `from main import app`, injects both `app.state.analytics_db` and
+  `app.state.analytics_writer` — `ASGITransport` never runs the lifespan —
+  and yields an `httpx.AsyncClient`).
   Note: `tests/test_analytics_db.py` declares its **own duplicate** `db(tmp_path)`
   fixture instead of reusing `analytics_db` — prefer reusing `analytics_db` for
   new DB-level tests rather than adding another copy.

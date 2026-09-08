@@ -26,6 +26,7 @@ class Settings(BaseSettings):
 
     # Analytics
     analytics_db_path: str = "data/analytics.db"
+    analytics_queue_size: int = 1000  # Bounded analytics write queue (drop-newest when full)
 
     model_config = {"env_file": ".env", "extra": "ignore"}
 

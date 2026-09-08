@@ -10,6 +10,7 @@ from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
 from analytics.db import AnalyticsDB
+from analytics.writer import AnalyticsWriter
 from config import settings
 from rate_limiter import limiter
 
@@ -28,12 +29,16 @@ async def lifespan(app: FastAPI):
     Path(db_path).parent.mkdir(parents=True, exist_ok=True)
     db = AnalyticsDB(db_path)
     await db.initialize()
+    writer = AnalyticsWriter(db, queue_size=settings.analytics_queue_size)
+    writer.start()
     app.state.analytics_db = db
+    app.state.analytics_writer = writer
     logger.info("LLM Gateway started — analytics DB at %s", db_path)
     yield
-    # Shutdown
+    # Shutdown: writer drains BEFORE db closes — reversed order silently drops
+    # the drained tail (log_request no-ops on a closed connection)
+    await writer.stop()
     await db.close()
-
 
 app = FastAPI(title="LLM Gateway", lifespan=lifespan)
 
