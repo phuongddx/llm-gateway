@@ -47,12 +47,15 @@ def render() -> str:
     ]
     for provider, model in sorted(_duration_count):
         key = (provider, model)
-        cumulative = 0
+        buckets = _duration_bucket_counts[key]
         for i, upper in enumerate(_BUCKETS):
-            cumulative += _duration_bucket_counts[key][i]
+            # buckets[i] is already the cumulative le=upper count — record_request
+            # increments every bucket whose upper bound the duration falls under,
+            # so no further running-sum accumulation belongs here (re-summing
+            # would double-count and make bucket values grow past the true total).
             lines.append(
                 f'gateway_request_duration_seconds_bucket{{provider="{_escape(provider)}",'
-                f'model="{_escape(model)}",le="{upper}"}} {cumulative}'
+                f'model="{_escape(model)}",le="{upper}"}} {buckets[i]}'
             )
         lines.append(
             f'gateway_request_duration_seconds_bucket{{provider="{_escape(provider)}",'

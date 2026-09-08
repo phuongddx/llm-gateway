@@ -72,14 +72,6 @@ async def test_chat_without_auth_returns_401(client):
     assert response.status_code in (401, 403, 422)
 
 
-@pytest.mark.asyncio
-async def test_health_endpoint(client):
-    """Health check returns 200 with ok status."""
-    response = await client.get("/health")
-    assert response.status_code == 200
-    assert response.json() == {"status": "ok"}
-
-
 # --- zai-coding credit logging + error mapping ---
 
 

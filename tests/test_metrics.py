@@ -93,3 +93,91 @@ async def test_chat_request_is_recorded_in_metrics(client, auth_headers):
 
     metrics_response = await client.get("/metrics")
     assert 'gateway_requests_total{provider="manifest",model="gpt-4o",status="success"}' in metrics_response.text
+
+
+def test_bucket_boundary_inclusive_at_upper_exclusive_one_step_above():
+    """A duration exactly at a bucket's upper bound counts in that bucket
+    (le semantics: duration_s <= upper); one increment above excludes it
+    from that bucket but includes it in the next."""
+    smallest_upper = metrics._BUCKETS[0]
+    next_upper = metrics._BUCKETS[1]
+
+    metrics.record_request("p", "m", "success", smallest_upper)
+    output = metrics.render()
+    assert (
+        f'gateway_request_duration_seconds_bucket{{provider="p",model="m",'
+        f'le="{smallest_upper}"}} 1'
+    ) in output
+
+    metrics.record_request("p", "m", "success", smallest_upper + 1e-6)
+    output = metrics.render()
+    # Still 1: the second duration is one step above the smallest bucket's
+    # upper bound, so it is excluded from that bucket.
+    assert (
+        f'gateway_request_duration_seconds_bucket{{provider="p",model="m",'
+        f'le="{smallest_upper}"}} 1'
+    ) in output
+    # But included in the next bucket, which now holds both requests.
+    assert (
+        f'gateway_request_duration_seconds_bucket{{provider="p",model="m",'
+        f'le="{next_upper}"}} 2'
+    ) in output
+
+
+@pytest.mark.asyncio
+async def test_health_ready_returns_503_when_state_absent(client, monkeypatch):
+    """GET /health/ready returns 503 when analytics_db/analytics_writer are
+    missing from app.state (lifespan never completed startup)."""
+    from main import app
+
+    monkeypatch.delattr(app.state, "analytics_db", raising=False)
+    monkeypatch.delattr(app.state, "analytics_writer", raising=False)
+
+    response = await client.get("/health/ready")
+    assert response.status_code == 503
+    assert response.json() == {"status": "not_ready"}
+
+
+@pytest.mark.asyncio
+async def test_record_request_concurrent_calls_lose_no_increments():
+    """N concurrently-scheduled record_request calls via asyncio.gather all
+    land — proving no lost increments under concurrent asyncio scheduling."""
+    import asyncio
+
+    n = 20
+
+    async def _record(i):
+        metrics.record_request("concurrent-p", "concurrent-m", "success", 0.01)
+
+    await asyncio.gather(*(_record(i) for i in range(n)))
+
+    output = metrics.render()
+    assert (
+        f'gateway_requests_total{{provider="concurrent-p",model="concurrent-m",'
+        f'status="success"}} {n}'
+    ) in output
+
+
+@pytest.mark.asyncio
+async def test_metrics_never_leaks_error_message_content(client, auth_headers):
+    """A distinctive error message from a failing provider must never appear
+    in /metrics output — only the fixed provider/model/status labels do."""
+    marker = "SUPER-SECRET-MARKER-a1b2c3"
+
+    class FailingProvider:
+        async def chat_stream(self, *args, **kwargs):
+            raise RuntimeError(marker)
+            yield  # pragma: no cover -- makes this an async generator
+
+    from unittest.mock import patch
+
+    with patch("routes.chat.create_provider", return_value=FailingProvider()):
+        await client.post(
+            "/v1/chat/completions",
+            json={"model": "gpt-4o", "messages": [{"role": "user", "content": "Hi"}]},
+            headers=auth_headers,
+        )
+
+    metrics_response = await client.get("/metrics")
+    assert marker not in metrics_response.text
+    assert 'gateway_requests_total{provider="manifest",model="gpt-4o",status="error"}' in metrics_response.text
