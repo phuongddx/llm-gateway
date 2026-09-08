@@ -45,6 +45,7 @@ def test_analytics_queue_size_validator_rejects_negative():
 
 def test_settings_default_constructs_without_app_api_key():
     s = _settings()
+    assert s.app_api_key == ""  # construction succeeds; lifespan is the abort point
     assert s.rate_limit == "60/minute"
 
 
