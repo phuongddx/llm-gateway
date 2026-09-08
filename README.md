@@ -194,6 +194,7 @@ All settings via `.env` file or environment variables.
 | `ZAI_CREDITS_WEEK` | No | `140000` | GLM Coding Plan weekly credit quota |
 | `LLM_API_KEY` | No | -- | Fallback if `MANIFEST_API_KEY` or `ZAI_CODING_API_KEY` not set |
 | `ANALYTICS_DB_PATH` | No | `data/analytics.db` | SQLite database path for analytics |
+| `ANALYTICS_RETENTION_DAYS` | No | `90` | Request-log retention in days — rows older than the TTL are purged at startup and every 6 hours; `0` keeps logs forever; with the default, pre-existing rows older than 90 days — including everything already in the database — are purged on the first startup, so raise the TTL or set `0` first to keep them; existing databases need the one-time migration `sqlite3 data/analytics.db "VACUUM;"` (gateway stopped) to make purged space reclaimable |
 | `CORS_ORIGINS` | No | -- | Comma-separated allowed origins |
 | `RATE_LIMIT` | No | `60/minute` | Rate limit per client IP |
 
