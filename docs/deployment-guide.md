@@ -183,7 +183,7 @@ Requires ngrok installed and authenticated. Use for testing webhooks or remote a
 ### 401 Unauthorized
 
 - Confirm `APP_API_KEY` in `.env` matches the `Authorization: Bearer <token>` header
-- Default `APP_API_KEY` is `changeme` -- change it in production
+- `APP_API_KEY` has no default (empty) — the gateway aborts startup if unset; set it in `.env` before first run
 
 ### 400 Unknown model
 

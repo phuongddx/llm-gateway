@@ -4,4 +4,4 @@ Out-of-scope discoveries found during plan execution, logged per the executor's 
 
 ## 05-03 (docs/deployment-guide.md + docs/code-standards.md)
 
-- **docs/deployment-guide.md:186** ("### 401 Unauthorized" section) claims "Default `APP_API_KEY` is `changeme` -- change it in production". The real `config.py` `Settings.app_api_key` default is `""` (empty string), not `"changeme"` — `tests/conftest.py`'s `client` fixture explicitly monkeypatches `settings.app_api_key` to `"changeme"` for test convenience, with a comment noting "no `.env` exists in CI -- default is `\"\"`". This line was not one of plan 05-03's six required corrections (Environment Variables Reference, Docker section, troubleshooting provider-key names) and pre-dates this plan's edits. Deferred rather than fixed under this plan's scope boundary.
+- **RESOLVED at v1.0 close (2026-09-08):** docs/deployment-guide.md:186 corrected to "`APP_API_KEY` has no default (empty) — the gateway aborts startup if unset; set it in `.env` before first run" (verified against config.py:21 and main.py:27).
