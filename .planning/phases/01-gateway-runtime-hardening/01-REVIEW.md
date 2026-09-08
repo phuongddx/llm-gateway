@@ -20,6 +20,19 @@ findings:
   important: 4
   minor: 8
   total: 12
+fixed:
+  - IM-01
+  - IM-02
+  - IM-03
+  - IM-04
+  - MN-01
+  - MN-02
+  - MN-03
+  - MN-04
+  - MN-05
+  - MN-06
+  - MN-07
+  - MN-08
 status: findings
 ---
 
@@ -159,6 +172,26 @@ if (parsed.token) yield parsed.token;
 **File:** `tests/test_startup_validation.py:35-37`
 **Issue:** `test_settings_default_constructs_without_app_api_key` only asserts `s.rate_limit == "60/minute"`; the name's actual claim (construction succeeds with an empty/absent `APP_API_KEY`, deferring the abort to lifespan) is unasserted.
 **Fix:** Add `assert s.app_api_key == ""` (construction succeeds; lifespan is the abort point — already covered by the lifespan tests).
+
+## Dispositions
+
+Fixer: Fix-P1 (gsd-code-fixer), 2026-09-08. All 4 Important and all 8 Minor findings fixed; none deferred. One commit per finding-group:
+
+- **IM-01** fixed (`83ee32c`) — Settings `model_validator` rejects `ANALYTICS_QUEUE_SIZE < 1` naming the env var (mirrors the RATE_LIMIT pattern per the locked "fail fast naming the variable" decision) + belt-and-braces `AnalyticsWriter` constructor guard; regression tests for 0 and -3 at both layers. (Adapted from the review's `Field(ge=1)` hint to keep the env-var-naming convention and its matching test style.)
+- **IM-02** fixed (`1761c0b`) — new `AnalyticsDB.write_probe()` (real CREATE/DROP TABLE write) called by lifespan after `initialize()`; a read-only DB file now aborts startup with `ANALYTICS_DB_PATH is not writable`. Reviewer's repro encoded as `test_readonly_analytics_db_file_aborts_at_write_probe`.
+- **IM-03** fixed (`e9ceb1b`) — `limits>=3.5` declared in `requirements.txt` (installed 5.8.0 satisfies); AGENTS.md dependency list updated in the same commit.
+- **IM-04** fixed (`24a67bd`) — both SSE parse sites discriminate by exception type: malformed JSON frames `continue`, the gateway-error throw now lives outside the parse try. Message-substring heuristic removed entirely.
+- **MN-01** fixed (`fea9f19`) — `_stopped` flag flips just before the consumer cancel; post-stop enqueues increment `dropped` and always log (never silently stranded). The drain window above still accepts and persists late records, preserving the locked "no lost tail" shutdown semantics. Regression test added.
+- **MN-02** fixed (`51fb57f`) — mkdir wrapped; EACCES on a deeper path now raises the curated `ANALYTICS_DB_PATH` RuntimeError instead of a bare `PermissionError`. Test added.
+- **MN-03** fixed (`fea9f19`, same commit as MN-01 — same file, same concern) — `wait_drained` default timeout is now `_DRAIN_TIMEOUT_S`.
+- **MN-04** fixed (`490be8f`) — vacuous `maxsize` assert replaced with `assert samples and max(samples) <= 20` (real invariant: exactly-once enqueue bounds queue depth by the 20 in-flight producers); the cap itself stays pinned by the `queue_size=3` drop test, and the private `_queue` read is gone.
+- **MN-05** fixed (`2e8f214`) — integration test moved to `test_chat_endpoint.py` next to its twin and reduced to its delta (token-before-error + the error DB row); the frame-shape equality stays asserted in exactly one place.
+- **MN-06** fixed (`e6ba082`) — dead `pendingToken` variable and both write-only assignments deleted; render throttle unchanged (works off `lastMsg.content`).
+- **MN-07** fixed (`5a1ff68`) — `MockProvider`/`FailingProvider`/`mock_provider` deleted from conftest along with their only-reason imports (`asyncio`, `AsyncGenerator`, `providers.base`); AGENTS.md fixture list updated.
+- **MN-08** fixed (`25e4557`) — `assert s.app_api_key == ""` added so the test asserts what its name promises.
+
+Verification: `.venv/bin/python -m pytest tests/ -q` → **99 passed** (93 baseline + 6 new regression tests); `node --check static/playground/playground.js` clean. Verification ran in the main checkout (workflow used shared-checkout mode per orchestrator dispatch; no isolated worktree was created).
+
 
 ## Pre-existing observations (out of phase scope, not counted)
 
