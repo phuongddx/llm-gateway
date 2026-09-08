@@ -36,7 +36,7 @@ progress:[░░░░░░░░░░] 0%
 See: .planning/PROJECT.md (updated 2026-09-08)
 
 **Core value:** Reliable quota-backed GLM serving — zai-coding requests succeed without quota-exhaustion incidents across a full coding day, with credit burn visible via `GET /v1/analytics/credits`.
-**Current focus:** Phase 5
+**Current focus:** Planning next milestone (v1.0 shipped 2026-09-08)
 
 ## Current Position
 
