@@ -1,4 +1,5 @@
 import logging
+import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -23,10 +24,23 @@ async def lifespan(app: FastAPI):
     # Validate required config
     if not settings.app_api_key:
         raise RuntimeError("APP_API_KEY env var is required but not set")
+    if not settings.get_api_key("zai-coding"):
+        logger.warning(
+            "No effective z.ai key (ZAI_CODING_API_KEY/LLM_API_KEY) — "
+            "GLM routes degrade to Manifest"
+        )
+    if not settings.get_api_key("manifest"):
+        logger.warning(
+            "No effective Manifest key (MANIFEST_API_KEY/LLM_API_KEY) — "
+            "non-GLM requests will fail upstream"
+        )
 
     # Startup
     db_path = settings.analytics_db_path
-    Path(db_path).parent.mkdir(parents=True, exist_ok=True)
+    parent = Path(db_path).parent
+    parent.mkdir(parents=True, exist_ok=True)
+    if not os.access(parent, os.W_OK):
+        raise RuntimeError(f"ANALYTICS_DB_PATH parent directory is not writable: {parent}")
     db = AnalyticsDB(db_path)
     await db.initialize()
     writer = AnalyticsWriter(db, queue_size=settings.analytics_queue_size)
