@@ -36,12 +36,12 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. SSE error frames carry an OpenAI-style error object (message/type fields) while z.ai quota exhaustion and authentication failure remain distinctly identifiable messages; no internal exception text reaches clients
   4. A z.ai quota event (HTTP 429 or error code 1113) surfaces to the client within one round-trip as the dedicated quota message — no hang, no retry loop, no Manifest reroute (locked ZAI-3)
 
-**Plans**: 2/3 plans executed
+**Plans**: 3/3 plans executed
 Plans:
 
 - [x] 01-01-PLAN.md
 - [x] 01-02-PLAN.md
-- [ ] 01-03-PLAN.md
+- [x] 01-03-PLAN.md
 - [ ] 01-PLAN-01-tracer-bounded-writer-error-frames.md — tracer: bounded AnalyticsWriter write path + OpenAI-style SSE error frames + playground renderer (RELI-02, RELI-03)
 - [ ] 01-PLAN-02-startup-validation.md — RATE_LIMIT model_validator + lifespan aborts and no-key notices (RELI-01)
 - [ ] 01-PLAN-03-concurrency-proof.md — 20-stream burst + queue unit tests proving exactly-once bounded analytics writes (RELI-02)
@@ -120,7 +120,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 (optional)
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Gateway Runtime Hardening | 2/3 | In Progress|  |
+| 1. Gateway Runtime Hardening | 3/3 | In Progress|  |
 | 2. Analytics Retention & Storage Lifecycle | 0/? | Not started | - |
 | 3. Containerized Deployment & CI | 0/? | Not started | - |
 | 4. Observability & Resilience | 0/? | Not started | - |
