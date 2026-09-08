@@ -7,7 +7,14 @@ from unittest.mock import AsyncMock, patch
 import httpx
 import pytest
 import tenacity
-from openai import APIConnectionError, InternalServerError
+from openai import (
+    APIConnectionError,
+    APIStatusError,
+    AuthenticationError,
+    InternalServerError,
+    PermissionDeniedError,
+    RateLimitError,
+)
 
 from providers.openai_compatible_base import OpenAICompatibleProvider
 
@@ -112,22 +119,47 @@ def test_client_constructed_with_max_retries_zero():
     assert provider.client.max_retries == 0
 
 
+def _balance_exhausted_error():
+    """Real z.ai '1113' balance-exhaustion shape: HTTP 402, which the openai
+    SDK's status->exception mapping does not special-case, so it surfaces as
+    the generic `APIStatusError` (not a bespoke stand-in) -- still correctly
+    excluded from the retry allow-list by omission (ZAI-3)."""
+    req = httpx.Request("POST", "https://api.z.ai/v4/chat/completions")
+    resp = httpx.Response(402, request=req)
+    return APIStatusError("1113 Insufficient Balance", response=resp, body=None)
+
+
+def _rate_limit_error():
+    req = httpx.Request("POST", "https://api.z.ai/v4/chat/completions")
+    resp = httpx.Response(429, request=req)
+    return RateLimitError("quota exceeded", response=resp, body=None)
+
+
+def _authentication_error():
+    req = httpx.Request("POST", "https://api.z.ai/v4/chat/completions")
+    resp = httpx.Response(401, request=req)
+    return AuthenticationError("invalid api key", response=resp, body=None)
+
+
+def _permission_denied_error():
+    req = httpx.Request("POST", "https://api.z.ai/v4/chat/completions")
+    resp = httpx.Response(403, request=req)
+    return PermissionDeniedError("forbidden", response=resp, body=None)
+
+
 @pytest.mark.asyncio
 async def test_quota_1113_shaped_exception_is_never_retried():
-    """A z.ai '1113' balance-exhausted-shaped exception (status_code=402,
-    message containing '1113') must not be retried at all — the allow-list
-    excludes it by omission (it is not one of the three allow-listed types),
-    not by matching its class name or status code."""
-
-    class BalanceError(Exception):
-        status_code = 402
-
+    """The real z.ai '1113' balance-exhausted exception (HTTP 402, mapped by
+    the openai SDK to the generic `APIStatusError`) must not be retried at
+    all -- the allow-list excludes it by omission (it is not one of the
+    three allow-listed types), not by matching its class name or status
+    code (WR-01: real SDK type, not a bespoke stand-in)."""
     provider = OpenAICompatibleProvider(api_key="test", model="glm-5.3")
-    create_mock = AsyncMock(side_effect=BalanceError("1113 Insufficient Balance"))
+    create_mock = AsyncMock(side_effect=_balance_exhausted_error())
     provider.client = SimpleNamespace(
         chat=SimpleNamespace(completions=SimpleNamespace(create=create_mock))
     )
-    with pytest.raises(BalanceError):
+    with pytest.raises(APIStatusError):
         async for _ in provider.chat_stream([{"role": "user", "content": "x"}], ""):
             pass
     assert create_mock.await_count == 1
@@ -135,22 +167,49 @@ async def test_quota_1113_shaped_exception_is_never_retried():
 
 @pytest.mark.asyncio
 async def test_auth_failure_shaped_exception_is_never_retried():
-    """A 401/403-shaped auth failure must not be retried — same omission
-    reasoning as the quota case."""
-
-    class AuthError(Exception):
-        status_code = 401
-
+    """A real `openai.AuthenticationError` (401) must not be retried -- same
+    omission reasoning as the quota case, but against the actual SDK type
+    rather than a fake stand-in (WR-01)."""
     provider = OpenAICompatibleProvider(api_key="test", model="glm-5.3")
-    create_mock = AsyncMock(side_effect=AuthError("invalid api key"))
+    create_mock = AsyncMock(side_effect=_authentication_error())
     provider.client = SimpleNamespace(
         chat=SimpleNamespace(completions=SimpleNamespace(create=create_mock))
     )
-    with pytest.raises(AuthError):
+    with pytest.raises(AuthenticationError):
         async for _ in provider.chat_stream([{"role": "user", "content": "x"}], ""):
             pass
     assert create_mock.await_count == 1
 
+
+@pytest.mark.asyncio
+async def test_real_ratelimiterror_is_never_retried():
+    """A real `openai.RateLimitError` (429, z.ai quota exhaustion) must not
+    be retried -- verifies ZAI-3 against the actual SDK exception hierarchy,
+    not a shape-alike fake (WR-01)."""
+    provider = OpenAICompatibleProvider(api_key="test", model="glm-5.3")
+    create_mock = AsyncMock(side_effect=_rate_limit_error())
+    provider.client = SimpleNamespace(
+        chat=SimpleNamespace(completions=SimpleNamespace(create=create_mock))
+    )
+    with pytest.raises(RateLimitError):
+        async for _ in provider.chat_stream([{"role": "user", "content": "x"}], ""):
+            pass
+    assert create_mock.await_count == 1
+
+
+@pytest.mark.asyncio
+async def test_real_permissiondeniederror_is_never_retried():
+    """A real `openai.PermissionDeniedError` (403) must not be retried --
+    the third ZAI-3-excluded sibling of `APIStatusError` (WR-01)."""
+    provider = OpenAICompatibleProvider(api_key="test", model="glm-5.3")
+    create_mock = AsyncMock(side_effect=_permission_denied_error())
+    provider.client = SimpleNamespace(
+        chat=SimpleNamespace(completions=SimpleNamespace(create=create_mock))
+    )
+    with pytest.raises(PermissionDeniedError):
+        async for _ in provider.chat_stream([{"role": "user", "content": "x"}], ""):
+            pass
+    assert create_mock.await_count == 1
 
 @pytest.mark.asyncio
 async def test_exhausted_transient_failure_reraises_original_exception():
