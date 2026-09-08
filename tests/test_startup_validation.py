@@ -134,3 +134,11 @@ async def test_startup_logs_never_contain_secret_values(monkeypatch, tmp_path, c
             pass
     for value in sentinels.values():
         assert value not in caplog.text
+        assert value[:8] not in caplog.text  # partial/masked leaks count too
+
+    # RATE_LIMIT abort path: the raised ValidationError must not echo key values
+    with pytest.raises(ValidationError, match="RATE_LIMIT") as exc_info:
+        Settings(_env_file=None, rate_limit="bogus/zzz", **sentinels)
+    for value in sentinels.values():
+        assert value not in str(exc_info.value)
+        assert value[:8] not in str(exc_info.value)
