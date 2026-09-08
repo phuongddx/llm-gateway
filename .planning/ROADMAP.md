@@ -19,10 +19,7 @@ Full phase details: `.planning/milestones/v1.0-ROADMAP.md`
 Requirements + traceability: `.planning/milestones/v1.0-REQUIREMENTS.md`
 
 </details>
-
-### Open (v2 candidates — not yet a milestone)
-
-- [ ] **Phase 6: Stress-Support Chatbot MVP (Optional)** — future direction on top of the gateway; **DO NOT START until preconditions are met**: target language, hosting target, crisis jurisdiction, source document formats (SCB-01, v2-gated). Carried forward from v1.0 planning by explicit user decision.
+**Open — v2 candidates (not yet a milestone):** Phase 6: Stress-Support Chatbot MVP (Optional) — future direction on top of the gateway; **DO NOT START until preconditions are met**: target language, hosting target, crisis jurisdiction, source document formats (SCB-01, v2-gated). Carried forward from v1.0 planning by explicit user decision.
 
 ---
 
