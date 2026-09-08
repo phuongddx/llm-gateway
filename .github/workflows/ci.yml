@@ -30,7 +30,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
           cache: pip                  # hashes requirements.txt by default [CITED: setup-python README]
       - run: pip install -r requirements.txt
-      - run: python -m pytest -q     # -m form puts repo root on sys.path (bare `pytest` does not); exit 0 pass / 1 fail / 2 collection error [VERIFIED: local exit-code probes]
+      - run: python -m pytest tests/ -q  # -m form puts repo root on sys.path (bare `pytest` does not); explicit tests/ path matches Makefile's test target
 
   docker-build:
     runs-on: ubuntu-latest            # Docker preinstalled on ubuntu images [CITED: runner-images README]
