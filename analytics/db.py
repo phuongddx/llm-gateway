@@ -139,6 +139,15 @@ class AnalyticsDB:
         """
         if not self._db or retention_days <= 0:  # 0 = keep-forever opt-out
             return 0
+        if batch < 1:
+            # batch=0: DELETE...LIMIT 0 deletes 0 rows and rowcount(0) < 0 is
+            # never true; negative: SQLite reads LIMIT -1 as unlimited, then
+            # 0 < -1 never fires — either way the loop below spins forever on
+            # the one shared connection. Same treatment as the writer's
+            # queue_size guard: fail fast on misconfiguration.
+            raise ValueError(
+                f"batch must be >= 1 (got {batch}); 0/negative never terminates the DELETE loop"
+            )
         cutoff = ((now or datetime.now(timezone.utc)) - timedelta(days=retention_days)).isoformat()
         deleted = 0
         while True:

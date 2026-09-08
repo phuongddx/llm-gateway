@@ -170,6 +170,29 @@ async def test_purge_multi_batch_deletes_all_expired(analytics_db):
 
 
 @pytest.mark.asyncio
+async def test_purge_rejects_batch_below_one_instead_of_spinning(analytics_db):
+    """batch=0/-1 make the loop's only exit (rowcount < batch) unreachable —
+    the guard raises ValueError before deleting anything (WR-01), mirroring
+    the writer's queue_size ctor guard. wait_for bounds each call so a
+    regression fails in 2s instead of hanging the consumer forever."""
+    now = datetime.now(timezone.utc)
+    expired_at = (now - timedelta(days=91)).isoformat()
+    await _seed_bulk(analytics_db, [
+        {**_record(i), "id": f"guard-{i:04d}", "created_at": expired_at}
+        for i in range(5)
+    ])
+
+    for bad_batch in (0, -1):
+        with pytest.raises(ValueError, match="batch must be >= 1"):
+            await asyncio.wait_for(
+                analytics_db.purge_expired(90, batch=bad_batch), timeout=2.0
+            )
+
+    # The guard fires before the DELETE loop — no rows lost to a bad batch.
+    assert (await analytics_db.get_recent(limit=10))["total"] == 5
+
+
+@pytest.mark.asyncio
 async def test_purge_reclaims_space_incremental_vacuum(tmp_path):
     """Fresh auto_vacuum=INCREMENTAL file: purge drains freelist to 0 and drops page_count."""
     db = analytics.db.AnalyticsDB(str(tmp_path / "reclaim.db"))
