@@ -1,5 +1,5 @@
 ---
-status: testing
+status: complete
 phase: 02-analytics-retention-storage-lifecycle
 source: [02-VERIFICATION.md]
 started: 2026-09-08T14:20:00+07:00
@@ -20,14 +20,14 @@ awaiting: user response
 
 ### 1. Operator-warning adequacy (README/.env first-purge warning wording)
 expected: First-purge consequence + escape hatch + VACUUM migration clear and discoverable.
-result: [pending]
+result: pass
 
 ## Summary
 
 total: 1
-passed: 0
+pending: 0
 issues: 0
-pending: 1
+passed: 1
 skipped: 0
 blocked: 0
 
