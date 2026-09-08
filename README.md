@@ -26,7 +26,7 @@ A FastAPI-based API gateway that routes chat completion requests through Manifes
 make install
 ```
 
-Creates a `.venv` and installs dependencies.
+Creates a `.venv` and installs dependencies (including `tenacity`, added for same-provider transient retry with exponential backoff — an explicit, user-approved deviation from the otherwise minimal-dependency default).
 
 ### Configure
 
@@ -169,15 +169,49 @@ curl -H "Authorization: Bearer changeme" http://localhost:8000/v1/analytics/cred
 
 Returns: `window_5h` (`credits_used`, `quota`), `window_7d_rolling` (`credits_used`, `quota`, `note`), `by_model` (per-model credits/requests), `off_peak_share`. Both windows are rolling estimates — z.ai resets credits dynamically (5h after consumption; weekly on the subscription anniversary).
 
-### GET /health
+### GET /health/live
 
-Health check endpoint (no auth required).
+Liveness check (no auth required, no dependencies) — confirms the process is up. Always returns 200 once the server has started.
 
 ```bash
-curl http://localhost:8000/health
+curl http://localhost:8000/health/live
 ```
 
 Returns `{"status": "ok"}`.
+
+### GET /health/ready
+
+Readiness check (no auth required) — returns 200 only once the analytics DB and writer have finished initializing during lifespan startup; 503 otherwise.
+
+```bash
+curl http://localhost:8000/health/ready
+```
+
+Returns `{"status": "ready"}` (200) or `{"status":"not_ready"}` (503).
+
+> The old single `GET /health` endpoint was removed with no back-compat alias — use `/health/live` or `/health/ready` instead.
+
+### GET /metrics
+
+Prometheus-format metrics endpoint (no auth required — standard scrape convention). Exposes:
+
+- `gateway_requests_total{provider,model,status}` — counter of completed requests
+- `gateway_request_duration_seconds{provider,model}` — latency histogram
+
+Error rate is derived via PromQL rather than a separate metric, e.g.:
+`sum(rate(gateway_requests_total{status="error"}[5m])) / sum(rate(gateway_requests_total[5m]))`
+
+```bash
+curl http://localhost:8000/metrics
+```
+
+An optional Prometheus sidecar that scrapes this endpoint (per `prometheus/prometheus.yml`) starts via the `observability` Compose profile:
+
+```bash
+docker compose --profile observability up
+```
+
+Prometheus is then reachable at `http://localhost:9090`.
 
 ## Configuration
 
@@ -197,6 +231,7 @@ All settings via `.env` file or environment variables.
 | `ANALYTICS_RETENTION_DAYS` | No | `90` | Request-log retention in days — rows older than the TTL are purged at startup and every 6 hours; `0` keeps logs forever; with the default, pre-existing rows older than 90 days — including everything already in the database — are purged on the first startup, so raise the TTL or set `0` first to keep them; existing databases need the one-time migration `sqlite3 data/analytics.db "VACUUM;"` (gateway stopped) to make purged space reclaimable |
 | `CORS_ORIGINS` | No | -- | Comma-separated allowed origins |
 | `RATE_LIMIT` | No | `60/minute` | Rate limit per client IP |
+| `RATE_LIMIT_PER_KEY` | No | `60/minute` | Rate limit per Bearer token (applies independently alongside `RATE_LIMIT`) |
 
 ### Legacy (Single Provider Mode)
 
