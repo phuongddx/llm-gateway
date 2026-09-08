@@ -19,7 +19,7 @@ covered_files:
   - .planning/phases/05-routing-decision-documentation-refresh/05-REVIEW.md
   - .planning/phases/05-routing-decision-documentation-refresh/deferred-items.md
   - .planning/REQUIREMENTS.md
-covered_digest: "v1:sha256:4fdda1c649bb6a848f8ff7bf6e976bf62b8e4da1b9cbd8b1f55a55871d4f3375 (computed manually via `sha256sum <files> | sort | sha256sum` — gsd-core/bin/gsd-tools.cjs not present in this repo checkout, so `verification.fingerprint` could not be invoked)"
+covered_digest: "v1:sha256:d86ecdfd63838821a227b8bceb072329ef5454e7c82269456261ab098c5b8024"
 behavior_unverified: 0
 overrides_applied: 0
 re_verification:
