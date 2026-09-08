@@ -480,17 +480,19 @@ For retry tests, set `create=AsyncMock(side_effect=[exc1, exc2, _aiter(chunks)])
 
 **If empty:** not applicable — three assumptions logged above; none touch the ZAI-3 no-fallback/no-retry-on-quota constraint, which is fully `[VERIFIED]` via source-reading rather than assumed.
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Should `Makefile`'s `make health` target repoint to `/health/ready` or `/health/live`?**
    - What we know: the Dockerfile's `HEALTHCHECK` and (per CONTEXT.md) the Compose healthcheck must repoint to `/health/ready` (readiness gates container health).
    - What's unclear: `make health` is a developer convenience command (`make start` calls it right after backgrounding the server) — `/health/ready` is arguably more useful there too (confirms the DB is actually usable, not just that the process bound the port), but CONTEXT.md doesn't explicitly mention the Makefile.
    - Recommendation: repoint `make health` to `/health/ready` for consistency; trivial one-line change, low risk either way.
+   - — RESOLVED: 04-01-PLAN.md Task 1 repoints `make health` to `/health/ready`.
 
 2. **Exact `RATE_LIMIT_PER_KEY` default value.**
    - What we know: CONTEXT.md locks the mechanism (Bearer-token key_func, new env var, both limits apply) but not a specific default number; the phase's "Claude's Discretion: None — all areas resolved" line refers to *design* areas, not this specific numeric default.
    - What's unclear: whether the per-key limit should default equal to, stricter than, or looser than the existing per-IP `RATE_LIMIT` default.
    - Recommendation: default `RATE_LIMIT_PER_KEY=60/minute` (matches existing `RATE_LIMIT` default) for a single-user gateway where the only real client population is "this one API key" — trivially overridable via `.env` per the requirement.
+   - — RESOLVED: 04-03-PLAN.md Task 1 sets `RATE_LIMIT_PER_KEY` default to `60/minute`.
 
 ## Environment Availability
 
