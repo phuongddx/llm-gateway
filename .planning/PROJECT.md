@@ -49,7 +49,24 @@ No ADRs exist in this project (ingest 2026-09-08 classified 0 of 26 docs as ADR)
   </decision>
 </decisions>
 
-Also locked alongside (out of scope per the same spec): Anthropic-Messages/Responses API endpoints; GLM→Manifest fallback under any condition. The spec additionally scoped "changes to the deprecated Manifest-`auto` entry" out of the zai-coding work while explicitly flagging it as a future decision — that future decision is now roadmap item ROUT-01 (Phase 5), which is the sanctioned path to revisit it.
+<decisions locked="true" source="phase-5 research, verified against current Manifest docs" locked-with-user="2026-09-08" ingested="2026-09-08">
+  <decision id="ROUT-01" title="model=auto fate: KEEP unchanged">
+    KEEP `model="auto"` in `MODEL_ROUTING` exactly as-is (`("manifest",
+    "auto")`) — no routing code change. Manifest's 2026-09-01 deprecation
+    removed the prompt-complexity classifier specifically, not the `auto`
+    keyword: `auto` now routes to the Manifest-dashboard-configured Default
+    tier (one model + up to 5 fallbacks) with automatic fallback recovery on
+    any 4xx/5xx from the primary — a different mechanism than before
+    (dashboard-tier routing vs. prompt-based classification) but fully
+    functional, adding automatic multi-model fallback the gateway didn't have
+    for `auto` traffic before. Regression-proofed by
+    `test_resolve_auto_unaffected_by_zai_key_state` and
+    `test_resolve_auto_stays_manifest_even_with_zai_key` in
+    `tests/test_routing.py`.
+  </decision>
+</decisions>
+
+Also locked alongside (out of scope per the same spec): Anthropic-Messages/Responses API endpoints; GLM→Manifest fallback under any condition. The spec additionally scoped "changes to the deprecated Manifest-`auto` entry" out of the zai-coding work while explicitly flagging it as a future decision — that future decision is now roadmap item ROUT-01 (Phase 5), which is the sanctioned path to revisit it — resolved 2026-09-08: KEEP, see the ROUT-01 decision block above.
 
 ## Requirements
 
@@ -130,6 +147,7 @@ Full contracts: docs/system-architecture.md, zai-coding spec, .planning/intel/co
 | Static routing/config dicts in Python | Auditable, change-controlled via git; no admin UI to justify a config DB | ✓ Good |
 | SQLite + WAL for analytics | Right call for single-instance; no Postgres, no migration framework | ✓ Good |
 | Playground: static HTML + vanilla JS, no build step | YAGNI — playground, not product | ✓ Good |
+| `model="auto"` kept unchanged (ROUT-01) | Verified against current Manifest docs — `auto` now rides the Default tier + up to 5 fallbacks, not the deprecated prompt-complexity classifier | ✓ Good |
 
 ---
 *Last updated: 2026-09-08 after new-project-from-ingest bootstrap (ingest of 26 docs: 0 ADR, 2 SPEC, 1 PRD, 23 DOC)*
