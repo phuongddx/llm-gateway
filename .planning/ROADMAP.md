@@ -83,7 +83,15 @@ Plans:
   3. The analytics SQLite database lives on a persistent volume and survives container recreation with all historical request logs intact
   4. GitHub Actions runs lint + tests (and builds the image) on push/PR; a red pipeline identifies a broken change before it reaches the deployed container
 
-**Plans**: TBD
+**Plans**: 2 plans
+Plans:
+**Wave 1**
+
+- [ ] 03-01-PLAN.md — tracer: AsyncGenerator 3.12 fix → multi-stage non-root image → single-service compose → green /health + volume persistence + measured <3s readiness on the operator-started Rancher Desktop daemon; README deployment quickstart (DEPL-01, DEPL-02)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 03-02-PLAN.md — CI: lint-green code fixes + blocking ruff SUS-legitimacy checkpoint + three-job GitHub Actions pipeline (lint / matrix 3.12+3.14 / docker-build) green on push to main (DEPL-03)
 
 ### Phase 4: Observability & Resilience
 
@@ -126,7 +134,7 @@ Plans:
 **Plans**: TBD (do not plan until preconditions resolved)
 
 ## Progress
-
+| 3. Containerized Deployment & CI | 0/2 | Not started | - |
 **Execution Order:**
 Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 (optional)
 
