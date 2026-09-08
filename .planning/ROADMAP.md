@@ -59,9 +59,16 @@ Plans:
 
 **Plans**: 3 plans
 Plans:
+**Wave 1**
 
 - [ ] 02-01-PLAN.md — tracer: `ANALYTICS_RETENTION_DAYS` knob → lifespan → writer startup purge → batched `purge_expired` + auto_vacuum reclamation, proven end-to-end in one real lifespan (ANLT-01, ANLT-02)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
 - [ ] 02-02-PLAN.md — 6h deadline tick inside the writer loop + inter-batch drain; endpoints-post-purge and 20-stream burst-during-purge proofs (ANLT-02)
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
 - [ ] 02-03-PLAN.md — operator docs: `.env.example` knob, README env row + one-time VACUUM migration note, AGENTS.md analytics section (ANLT-01, ANLT-02)
 
 ### Phase 3: Containerized Deployment & CI
