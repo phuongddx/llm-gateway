@@ -1,3 +1,5 @@
+from limits import parse_many
+from pydantic import model_validator
 from pydantic_settings import BaseSettings
 
 
@@ -29,6 +31,20 @@ class Settings(BaseSettings):
     analytics_queue_size: int = 1000  # Bounded analytics write queue (drop-newest when full)
 
     model_config = {"env_file": ".env", "extra": "ignore"}
+
+    @model_validator(mode="after")
+    def _validate_rate_limit(self) -> "Settings":
+        """Fail fast on malformed RATE_LIMIT — slowapi would defer it to request time."""
+        try:
+            parsed = list(parse_many(self.rate_limit))
+        except ValueError as e:
+            raise ValueError(
+                f"RATE_LIMIT is not a valid rate string (expected e.g. '60/minute'): "
+                f"{self.rate_limit!r} ({e})"
+            ) from e
+        if not parsed:
+            raise ValueError(f"RATE_LIMIT parsed to zero limits: {self.rate_limit!r}")
+        return self
 
     def get_api_key(self, provider: str) -> str:
         """Return API key for provider. Dedicated key with llm_api_key fallback."""
