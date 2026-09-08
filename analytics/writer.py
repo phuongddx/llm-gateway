@@ -25,6 +25,7 @@ class AnalyticsWriter:
         self._db = db
         self._queue: asyncio.Queue = asyncio.Queue(maxsize=queue_size)
         self._task: asyncio.Task | None = None
+        self._stopped = False
         self.dropped = 0
 
     def start(self) -> None:
@@ -34,6 +35,15 @@ class AnalyticsWriter:
         return self._queue.qsize()
 
     def enqueue(self, record: dict) -> None:
+        if self._stopped:
+            # Consumer is gone (in-flight stream's finally raced past shutdown)
+            # — count + log rather than stranding the record uncounted.
+            self.dropped += 1
+            logger.warning(
+                "Analytics writer stopped — record dropped (%d records dropped total)",
+                self.dropped,
+            )
+            return
         try:
             self._queue.put_nowait(record)
         except asyncio.QueueFull:
@@ -51,11 +61,12 @@ class AnalyticsWriter:
             finally:
                 self._queue.task_done()  # in finally so join() never deadlocks
 
-    async def wait_drained(self, timeout: float = 5.0) -> None:
+    async def wait_drained(self, timeout: float = _DRAIN_TIMEOUT_S) -> None:
         await asyncio.wait_for(self._queue.join(), timeout=timeout)
 
     async def stop(self, timeout: float = _DRAIN_TIMEOUT_S) -> None:
         if self._task is None:
+            self._stopped = True
             return
         try:
             await asyncio.wait_for(self._queue.join(), timeout=timeout)
@@ -65,6 +76,10 @@ class AnalyticsWriter:
                 timeout,
                 self._queue.qsize(),
             )
+        # Flip only now — the drain window above still accepts+persists late
+        # records ("no lost tail"); from here on the consumer is gone and
+        # enqueue() drops+logs instead of stranding records uncounted.
+        self._stopped = True
         self._task.cancel()
         try:
             await self._task

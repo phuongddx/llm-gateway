@@ -212,6 +212,26 @@ async def test_stop_on_idle_or_never_started_writer_returns_immediately(analytic
 
 
 @pytest.mark.asyncio
+async def test_enqueue_after_stop_is_counted_and_logged_never_stranded(analytics_db, caplog):
+    """Post-stop enqueues (in-flight stream racing shutdown) are dropped,
+    counted, and logged — not silently stranded in a dead queue (MN-01)."""
+    writer = AnalyticsWriter(analytics_db, queue_size=3)
+    writer.start()
+    await writer.stop()
+
+    with caplog.at_level(logging.WARNING):
+        writer.enqueue(_record(0))
+
+    assert writer.qsize() == 0  # nothing left stranded in the dead queue
+    assert writer.dropped == 1
+    assert any(
+        "writer stopped" in r.getMessage() and "dropped" in r.getMessage()
+        for r in caplog.records
+    )
+    assert (await analytics_db.get_recent(limit=10))["total"] == 0  # never persisted
+
+
+@pytest.mark.asyncio
 async def test_single_record_exactly_once(analytics_db):
     """A single enqueued record lands as exactly one row."""
     writer = AnalyticsWriter(analytics_db, queue_size=3)
