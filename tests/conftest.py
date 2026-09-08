@@ -34,6 +34,19 @@ async def analytics_writer(analytics_db):
 
 
 @pytest_asyncio.fixture
+async def analytics_retention_writer(analytics_db):
+    """AnalyticsWriter with a 0.05s purge tick for retention scheduling tests
+    (lifespan never runs under ASGITransport; same shape as analytics_writer)."""
+    from main import app
+
+    writer = AnalyticsWriter(analytics_db, queue_size=1000, retention_days=90, purge_interval_s=0.05)
+    writer.start()
+    app.state.analytics_writer = writer
+    yield writer
+    await writer.stop()
+
+
+@pytest_asyncio.fixture
 async def client(analytics_db, analytics_writer):
     """Async test client with analytics DB + writer injected."""
     from main import app

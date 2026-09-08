@@ -2,6 +2,7 @@
 
 import logging
 import sqlite3
+from collections.abc import Awaitable, Callable
 from datetime import datetime, timedelta, timezone
 
 import aiosqlite
@@ -125,12 +126,16 @@ class AnalyticsDB:
         batch: int = _PURGE_BATCH,
         *,
         now: datetime | None = None,
+        between_batches: Callable[[], Awaitable[None]] | None = None,
     ) -> int:
         """Delete request_logs rows strictly older than retention_days; reclaim space.
 
         A row exactly AT the cutoff instant is RETAINED (strict <). Returns the
         number of rows deleted. Unlike log_request this propagates DB errors —
         it returns int for test asserts and the writer loop owns containment.
+        between_batches, when given, is awaited after every per-batch commit
+        (including the final partial one) so the caller can drain work between
+        DELETE batches.
         """
         if not self._db or retention_days <= 0:  # 0 = keep-forever opt-out
             return 0
@@ -146,6 +151,10 @@ class AnalyticsDB:
             )
             deleted += cur.rowcount
             await self._db.commit()  # per-batch: short WAL checkpoints (locked)
+            if between_batches is not None:
+                # Inter-batch hook: lets the writer drain queue records that
+                # arrived mid-purge (Pitfall 3 — purge-starved queue drops).
+                await between_batches()
             if cur.rowcount < batch:
                 break
         # Guarded reclamation: this SQLite build moves exactly ONE page per

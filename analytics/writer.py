@@ -6,6 +6,9 @@ import logging
 logger = logging.getLogger(__name__)
 
 _DRAIN_TIMEOUT_S = 5.0  # bounded shutdown drain wait
+_PURGE_INTERVAL_S = 6 * 3600.0  # locked 6h purge cadence; module constant,
+                                # NOT env — the locked env surface gains only
+                                # ANALYTICS_RETENTION_DAYS (tests inject via ctor)
 
 
 class AnalyticsWriter:
@@ -15,7 +18,13 @@ class AnalyticsWriter:
     consumer task drains to AnalyticsDB. Client streams never wait on SQLite.
     """
 
-    def __init__(self, db, queue_size: int = 1000, retention_days: int = 90):
+    def __init__(
+        self,
+        db,
+        queue_size: int = 1000,
+        retention_days: int = 90,
+        purge_interval_s: float = _PURGE_INTERVAL_S,
+    ):
         if queue_size < 1:
             # asyncio.Queue treats maxsize <= 0 as UNBOUNDED — refuse instead
             # of silently recreating the OOM hazard this writer exists to prevent.
@@ -28,6 +37,7 @@ class AnalyticsWriter:
         self._stopped = False
         self.dropped = 0
         self._retention_days = retention_days
+        self._purge_interval_s = purge_interval_s
         # Public purge observables (precedent: self.dropped).
         self.purges_run = 0
         self.last_purged = None
@@ -55,6 +65,27 @@ class AnalyticsWriter:
             if self.dropped % 50 == 0:
                 logger.warning("Analytics queue full — %d records dropped so far", self.dropped)
 
+    async def _drain_queued(self) -> None:
+        """Drain records that queued while a purge pass was running.
+
+        Called between DELETE batches (purge_expired's between_batches hook)
+        so a burst during a long purge persists mid-pass instead of filling
+        the queue cap and dropping (Pitfall 3). Mirrors _run's record path
+        exactly — log_request contained, task_done in finally — so join()
+        semantics and error containment are identical.
+        """
+        while True:
+            try:
+                record = self._queue.get_nowait()
+            except asyncio.QueueEmpty:
+                break
+            try:
+                await self._db.log_request(record)
+            except Exception:
+                logger.exception("Analytics write failed")
+            finally:
+                self._queue.task_done()  # in finally so join() never deadlocks
+
     async def _purge(self) -> None:
         """One retention pass; failures contained — a purge error must never
         kill the consumer task (all analytics writes would stop)."""
@@ -62,7 +93,12 @@ class AnalyticsWriter:
         # if the purge raises before assigning it.
         self.purges_run += 1
         try:
-            self.last_purged = await self._db.purge_expired(self._retention_days)
+            # between_batches keeps the queue drained between DELETE batches:
+            # records enqueued mid-purge are persisted in the batch gaps
+            # instead of piling onto the capped queue (Pitfall 3).
+            self.last_purged = await self._db.purge_expired(
+                self._retention_days, between_batches=self._drain_queued
+            )
         except Exception:
             logger.exception("Analytics retention purge failed")
 
@@ -75,14 +111,35 @@ class AnalyticsWriter:
         # most one uncommitted batch rolls back at close and the next startup
         # purge resumes.
         await self._purge()
+        loop = asyncio.get_running_loop()
+        next_purge = loop.time() + self._purge_interval_s
         while True:
-            record = await self._queue.get()
+            # Deadline wakeup: the wait expires exactly when the next purge
+            # is due — one task owns both the record path and the tick
+            # (locked: no new scheduler). timeout=0.0 fires immediately when
+            # the deadline has already passed.
+            timeout = max(0.0, next_purge - loop.time())
             try:
-                await self._db.log_request(record)
-            except Exception:
-                logger.exception("Analytics write failed")
-            finally:
-                self._queue.task_done()  # in finally so join() never deadlocks
+                record = await asyncio.wait_for(self._queue.get(), timeout=timeout)
+            except asyncio.TimeoutError:
+                record = None
+                # queue.get is cancellation-safe on this interpreter (probe
+                # R3e: a raced item stays queued); the salvage only reduces
+                # pickup latency for an item racing the timeout.
+                try:
+                    record = self._queue.get_nowait()
+                except asyncio.QueueEmpty:
+                    pass
+            if record is not None:
+                try:
+                    await self._db.log_request(record)
+                except Exception:
+                    logger.exception("Analytics write failed")
+                finally:
+                    self._queue.task_done()  # in finally so join() never deadlocks
+            if loop.time() >= next_purge:
+                await self._purge()
+                next_purge = loop.time() + self._purge_interval_s  # no drift
 
     async def wait_drained(self, timeout: float = _DRAIN_TIMEOUT_S) -> None:
         await asyncio.wait_for(self._queue.join(), timeout=timeout)

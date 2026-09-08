@@ -9,6 +9,7 @@ from datetime import datetime, timedelta, timezone
 import pytest
 
 import analytics.db
+from analytics.writer import AnalyticsWriter
 
 
 def _record(i: int) -> dict:
@@ -238,3 +239,141 @@ async def test_purge_log_reports_count_and_no_row_contents(analytics_db, caplog)
     assert "privacy-probe-aaa" not in caplog.text
     assert "privacy-probe-bbb" not in caplog.text
     assert "glm-5.3-purge-probe" not in caplog.text
+
+# --- Periodic scheduling + mid-purge drain (02-02 Task 1) ---
+
+
+@pytest.mark.asyncio
+async def test_periodic_tick_purges_reseeded_expired_rows(
+    analytics_retention_writer, analytics_db
+):
+    """Interval 0.05s: a row seeded AFTER startup is removed by a later,
+    periodic pass — purges_run >= 2 proves the deadline wakeup keeps firing."""
+    writer = analytics_retention_writer
+    # Wait out the startup purge first so only a LATER pass can remove the
+    # reseeded row (02-01 already pins the startup pass; this pins periodicity).
+    deadline = time.monotonic() + 5.0
+    while writer.last_purged is None:
+        if time.monotonic() >= deadline:
+            pytest.fail("startup purge did not complete within 5s")
+        await asyncio.sleep(0.01)
+
+    seeded = {
+        **_record(1),
+        "id": "tick-reseeded-expired",
+        "created_at": (datetime.now(timezone.utc) - timedelta(days=91)).isoformat(),
+    }
+    await analytics_db.log_request(seeded)  # direct DB write — bypasses the queue
+
+    await asyncio.sleep(0.25)  # bounded: ~5 ticks at the 0.05s interval
+
+    assert writer.purges_run >= 2  # the startup pass plus at least one tick
+    recent = await analytics_db.get_recent(limit=10)
+    assert "tick-reseeded-expired" not in {row["id"] for row in recent["requests"]}
+
+
+@pytest.mark.asyncio
+async def test_startup_purge_does_not_block_lifespan_readiness(monkeypatch, tmp_path):
+    """With purge_expired gated on a never-set Event, the lifespan still
+    reaches its yield point — request readiness never awaits a purge (NFR-04);
+    the fire-and-forget guarantee holds at startup."""
+    from main import app, lifespan
+    from config import settings
+
+    entered = asyncio.Event()  # set at the lifespan yield point (request-ready)
+    gate = asyncio.Event()  # closed until the assertions are done
+    hold_open = asyncio.Event()  # keeps the lifespan inside its async-with
+    calls = {"started": 0, "returned": 0}
+    original_purge = analytics.db.AnalyticsDB.purge_expired
+
+    async def gated_purge(self, *args, **kwargs):
+        calls["started"] += 1
+        await gate.wait()
+        result = await original_purge(self, *args, **kwargs)
+        calls["returned"] += 1
+        return result
+
+    monkeypatch.setattr(analytics.db.AnalyticsDB, "purge_expired", gated_purge)
+    monkeypatch.setattr(settings, "app_api_key", "test-key")
+    monkeypatch.setattr(settings, "analytics_db_path", str(tmp_path / "nblock.db"))
+    monkeypatch.setattr(settings, "analytics_retention_days", 90)
+
+    async def run_lifespan():
+        async with lifespan(app):
+            entered.set()
+            await hold_open.wait()
+
+    lifespan_task = asyncio.create_task(run_lifespan())
+    await asyncio.wait_for(entered.wait(), timeout=2.0)  # ready, bounded
+
+    # The writer's startup purge has STARTED but has NOT returned (gate still
+    # closed) while the app is already request-ready — proof readiness never
+    # awaits a purge.
+    deadline = time.monotonic() + 2.0
+    while calls["started"] < 1:
+        if time.monotonic() >= deadline:
+            pytest.fail("writer startup purge did not start within 2s")
+        await asyncio.sleep(0.01)
+    assert calls["returned"] == 0
+
+    gate.set()
+    hold_open.set()
+    await asyncio.wait_for(lifespan_task, timeout=5.0)
+
+
+@pytest.mark.asyncio
+async def test_interleave_queue_drained_between_purge_batches(analytics_db):
+    """2500 expired rows in the startup purge; 30 fresh records enqueued
+    synchronously right after start: the between-batches drain persists them
+    mid-purge — dropped == 0, exactly 30 rows survive, queue empties."""
+    expired = [
+        {
+            **_record(i),
+            "created_at": (datetime.now(timezone.utc) - timedelta(days=91)).isoformat(),
+        }
+        for i in range(2500)
+    ]
+    await _seed_bulk(analytics_db, expired)
+
+    writer = AnalyticsWriter(
+        analytics_db, queue_size=1000, retention_days=90, purge_interval_s=5.0
+    )
+    writer.start()
+    for i in range(2500, 2530):  # 30 fresh records, synchronously — no await
+        writer.enqueue(_record(i))
+
+    await asyncio.sleep(0.3)  # bounded: the startup purge completes its batches
+
+    assert writer.dropped == 0
+    recent = await analytics_db.get_recent(limit=100)
+    assert recent["total"] == 30  # expired gone, fresh persisted exactly once
+    assert {row["id"] for row in recent["requests"]} == {
+        _record(i)["id"] for i in range(2500, 2530)
+    }
+    await writer.wait_drained(5.0)
+    assert writer.qsize() == 0
+    await writer.stop()
+
+
+@pytest.mark.asyncio
+async def test_purge_between_batches_hook_awaited_per_batch(analytics_db):
+    """between_batches fires after EVERY per-batch commit, including the
+    final partial one: 2500 rows at batch 1000 -> exactly 3 invocations,
+    2500 deleted."""
+    expired = [
+        {
+            **_record(i),
+            "created_at": (datetime.now(timezone.utc) - timedelta(days=91)).isoformat(),
+        }
+        for i in range(2500)
+    ]
+    await _seed_bulk(analytics_db, expired)
+    calls: list[int] = []
+
+    async def between_batches_hook():
+        calls.append(1)
+
+    deleted = await analytics_db.purge_expired(90, between_batches=between_batches_hook)
+
+    assert len(calls) == 3  # batches of 1000 + 1000 + 500: hook after each commit
+    assert deleted == 2500
