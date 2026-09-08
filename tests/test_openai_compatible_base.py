@@ -227,10 +227,12 @@ async def test_exhausted_transient_failure_reraises_original_exception():
     provider.client = SimpleNamespace(
         chat=SimpleNamespace(completions=SimpleNamespace(create=create_mock))
     )
-    with patch("asyncio.sleep", new=AsyncMock(return_value=None)):
-        with pytest.raises(APIConnectionError) as exc_info:
-            async for _ in provider.chat_stream([{"role": "user", "content": "x"}], ""):
-                pass
+    with (
+        patch("asyncio.sleep", new=AsyncMock(return_value=None)),
+        pytest.raises(APIConnectionError) as exc_info,
+    ):
+        async for _ in provider.chat_stream([{"role": "user", "content": "x"}], ""):
+            pass
     assert exc_info.value is final_exception
     assert not isinstance(exc_info.value, tenacity.RetryError)
     assert exc_info.value.request is final_exception.request
