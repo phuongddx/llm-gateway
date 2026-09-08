@@ -111,3 +111,47 @@ async def test_analytics_endpoints_require_auth(client):
         response = await client.get(path)
         # FastAPI returns 422 when required Header(...) is missing
         assert response.status_code in (401, 403, 422), f"{path} should require auth"
+
+
+# --- GET /v1/analytics/credits ---
+
+
+@pytest.mark.asyncio
+async def test_credits_endpoint_requires_auth(client):
+    # FastAPI returns 422 for a missing Authorization header (Header(...)
+    # validation); an invalid token exercises verify_auth's 401 path.
+    response = await client.get(
+        "/v1/analytics/credits", headers={"Authorization": "Bearer invalid-token"}
+    )
+    assert response.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_credits_endpoint_empty(client, auth_headers):
+    response = await client.get("/v1/analytics/credits", headers=auth_headers)
+    assert response.status_code == 200
+    body = response.json()
+    assert body["window_5h"] == {"credits_used": 0.0, "quota": 28000}
+    assert body["window_7d_rolling"]["quota"] == 140000
+    assert "rolling estimate" in body["window_7d_rolling"]["note"]
+    assert body["by_model"] == {}
+    assert body["off_peak_share"] is None
+
+
+@pytest.mark.asyncio
+async def test_credits_endpoint_aggregates_rows(client, auth_headers, analytics_db):
+    from datetime import datetime, timedelta, timezone
+
+    now = datetime.now(timezone.utc)
+    for credits in (10.0, 25.5):
+        await analytics_db.log_request({
+            "id": f"c-{credits}",
+            "provider": "zai-coding",
+            "model": "glm-5.3",
+            "credits_used": credits,
+            "created_at": (now - timedelta(minutes=30)).isoformat(),
+        })
+    response = await client.get("/v1/analytics/credits", headers=auth_headers)
+    body = response.json()
+    assert body["window_5h"]["credits_used"] == pytest.approx(35.5)
+    assert body["by_model"]["glm-5.3"]["requests"] == 2

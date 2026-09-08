@@ -1,11 +1,12 @@
 from abc import ABC, abstractmethod
-from typing import AsyncGenerator, TypedDict
+from typing import AsyncGenerator, NotRequired, TypedDict
 
 
 class UsageData(TypedDict):
     prompt_tokens: int
     completion_tokens: int
     total_tokens: int
+    cached_tokens: NotRequired[int]
 
 
 StreamChunk = tuple[str, UsageData | None]

@@ -1,7 +1,11 @@
 """Unit tests for analytics.db — AnalyticsDB CRUD operations."""
 
+from datetime import datetime, timedelta, timezone
+
 import pytest
 import pytest_asyncio
+
+from analytics.cost import is_peak
 from analytics.db import AnalyticsDB
 
 
@@ -16,7 +20,6 @@ async def db(tmp_path):
 
 async def _insert_sample(db: AnalyticsDB, count: int = 5):
     """Insert sample records for aggregation tests."""
-    from datetime import datetime, timezone
 
     models = ["gpt-4o", "deepseek-chat", "gemini-2.5-flash"]
     for i in range(count):
@@ -145,3 +148,97 @@ async def test_error_record_has_status(db):
     req = result["requests"][0]
     assert req["status"] == "error"
     assert req["error_message"] == "timeout"
+
+
+# --- credits_used column + get_credits_summary ---
+
+
+def _credit_record(model="glm-5.3", credits=36.6, minutes_ago=0, provider="zai-coding"):
+    created = datetime.now(timezone.utc) - timedelta(minutes=minutes_ago)
+    return {
+        "id": f"row-{model}-{minutes_ago}-{credits}",
+        "provider": provider,
+        "model": model,
+        "prompt_tokens": 150000,
+        "completion_tokens": 3000,
+        "total_tokens": 153000,
+        "credits_used": credits,
+        "created_at": created.isoformat(),
+    }
+
+
+@pytest.mark.asyncio
+async def test_log_request_persists_credits(db):
+    await db.log_request(_credit_record(credits=12.5))
+    summary = await db.get_credits_summary()
+    assert summary["credits_5h"] == pytest.approx(12.5)
+    assert summary["credits_7d"] == pytest.approx(12.5)
+
+
+@pytest.mark.asyncio
+async def test_credits_summary_windows(db):
+    await db.log_request(_credit_record(credits=10, minutes_ago=60))       # inside 5h
+    await db.log_request(_credit_record(credits=20, minutes_ago=8 * 60))   # outside 5h, inside 7d
+    await db.log_request(_credit_record(credits=40, minutes_ago=8 * 24 * 60))  # outside both
+    summary = await db.get_credits_summary()
+    assert summary["credits_5h"] == pytest.approx(10)
+    assert summary["credits_7d"] == pytest.approx(30)
+    assert summary["by_model"]["glm-5.3"]["credits_used"] == pytest.approx(30)
+    assert summary["by_model"]["glm-5.3"]["requests"] == 2
+
+
+@pytest.mark.asyncio
+async def test_credits_summary_excludes_manifest_rows(db):
+    await db.log_request(_credit_record(provider="manifest", credits=99))
+    summary = await db.get_credits_summary()
+    assert summary["credits_5h"] == 0.0
+    assert summary["by_model"] == {}
+
+
+@pytest.mark.asyncio
+async def test_credits_summary_off_peak_share_and_empty(db):
+    assert (await db.get_credits_summary())["off_peak_share"] is None
+
+
+@pytest.mark.asyncio
+async def test_credits_summary_off_peak_share_single_row(db):
+    await db.log_request(_credit_record(credits=10))
+    summary = await db.get_credits_summary()
+    expected = 0.0 if is_peak(datetime.now(timezone.utc)) else 1.0
+    assert summary["off_peak_share"] == expected
+
+
+@pytest.mark.asyncio
+async def test_migration_adds_column_to_preexisting_schema(tmp_path):
+    import sqlite3
+
+    path = str(tmp_path / "old.db")
+    conn = sqlite3.connect(path)
+    conn.execute(
+        """CREATE TABLE request_logs (
+            id TEXT PRIMARY KEY, provider TEXT NOT NULL, model TEXT NOT NULL,
+            prompt_tokens INTEGER DEFAULT 0, completion_tokens INTEGER DEFAULT 0,
+            total_tokens INTEGER DEFAULT 0, latency_ms INTEGER DEFAULT 0,
+            ttft_ms INTEGER DEFAULT 0, cost_usd REAL DEFAULT 0.0,
+            status TEXT NOT NULL DEFAULT 'success', error_message TEXT,
+            created_at TEXT NOT NULL)"""
+    )
+    conn.commit()
+    conn.close()
+
+    db = AnalyticsDB(path)
+    await db.initialize()
+    await db.log_request(_credit_record(credits=5.0))
+    summary = await db.get_credits_summary()
+    await db.close()
+    assert summary["credits_7d"] == pytest.approx(5.0)
+
+
+@pytest.mark.asyncio
+async def test_initialize_is_idempotent_for_credits_column(tmp_path):
+    db = AnalyticsDB(str(tmp_path / "fresh.db"))
+    await db.initialize()
+    await db.close()
+    db = AnalyticsDB(str(tmp_path / "fresh.db"))
+    await db.initialize()  # second init: CREATE IF NOT EXISTS + ALTER must not raise
+    await db.close()

@@ -54,6 +54,10 @@ class OpenAICompatibleProvider(LLMProvider):
                     completion_tokens=chunk.usage.completion_tokens,
                     total_tokens=chunk.usage.total_tokens,
                 )
+                details = getattr(chunk.usage, "prompt_tokens_details", None)
+                cached = getattr(details, "cached_tokens", None)
+                if cached:
+                    usage["cached_tokens"] = cached
                 yield ("", usage)
             # Text content chunks
             elif chunk.choices:

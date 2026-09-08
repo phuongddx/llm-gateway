@@ -4,13 +4,14 @@ import asyncio
 import json
 import logging
 import time
+from datetime import datetime, timezone
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
-from analytics.cost import calculate_cost
+from analytics.cost import calculate_cost, estimate_credits
 from analytics.routing import resolve_provider
 from config import settings
 from rate_limiter import limiter
@@ -88,7 +89,14 @@ async def _tracked_stream(
     except Exception as e:
         error_msg = str(e)
         logger.error("Provider stream error: %s", error_msg)
-        yield f"data: {json.dumps({'error': 'Internal error processing request'})}\n\n"
+        client_msg = "Internal error processing request"
+        if provider_name == "zai-coding":
+            status = getattr(e, "status_code", None)
+            if status == 429 or "1113" in error_msg:
+                client_msg = "zai-coding quota exhausted — resets within the 5-hour window"
+            elif status in (401, 403):
+                client_msg = "zai-coding authentication failed"
+        yield f"data: {json.dumps({'error': client_msg})}\n\n"
 
     finally:
         # Calculate metrics
@@ -99,6 +107,9 @@ async def _tracked_stream(
         completion_tokens = usage_data["completion_tokens"] if usage_data else token_count
         total_tokens = usage_data["total_tokens"] if usage_data else (prompt_tokens + completion_tokens)
         cost_usd = calculate_cost(model_id, prompt_tokens, completion_tokens)
+        credits_used = estimate_credits(
+            provider_name, model_id, usage_data or {}, datetime.now(timezone.utc)
+        )
 
         # Fire-and-forget DB log with reference held to prevent GC
         if analytics_db:
@@ -113,6 +124,7 @@ async def _tracked_stream(
                     "latency_ms": latency_ms,
                     "ttft_ms": ttft_ms,
                     "cost_usd": cost_usd,
+                    "credits_used": credits_used,
                     "status": "error" if error_msg else "success",
                     "error_message": error_msg,
                 }))
