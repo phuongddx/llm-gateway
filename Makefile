@@ -1,4 +1,4 @@
-.PHONY: install start stop health dev clean test test-unit test-integration
+.PHONY: install start stop health dev clean test test-unit test-integration docker-build docker-up docker-down
 
 # Default: install deps + start server
 all: install start
@@ -45,3 +45,13 @@ test-integration:
 clean:
 	find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
 	rm -rf *.egg-info dist build
+
+# Docker deployment
+docker-build:
+	docker build -t llm-gateway:latest .
+
+docker-up:
+	docker compose up -d --build
+
+docker-down:
+	docker compose down

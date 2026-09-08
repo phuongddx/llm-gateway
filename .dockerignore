@@ -1,0 +1,21 @@
+# Locked entries (CONTEXT decision)
+.venv
+.git
+data/
+.planning/
+plans/
+docs/
+__pycache__
+repomix-output.xml
+repomix-llmgateway.md
+server.log
+
+# Additions (RESEARCH Pitfall 3 — defense in depth)
+.env
+.pytest_cache
+.omx
+.claude
+.superpowers
+.ngrok
+*.pyc
+tests/

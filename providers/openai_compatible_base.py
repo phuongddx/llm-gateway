@@ -1,6 +1,7 @@
 """Shared base class for OpenAI-compatible API providers."""
 
 import logging
+from collections.abc import AsyncGenerator
 
 from openai import AsyncOpenAI
 

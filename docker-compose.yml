@@ -1,0 +1,14 @@
+services:
+  gateway:
+    build: .
+    image: llm-gateway:latest   # stable name shared with `make docker-build`
+    env_file: .env              # required: true by default → loud error if missing [CITED]
+    ports:
+      - "8000:8000"
+    volumes:
+      - gateway-data:/app/data  # ANALYTICS_DB_PATH default is data/analytics.db (CWD-relative)
+    restart: unless-stopped     # "restarts … irrespective of the exit code but stops
+                               #  restarting when the service is stopped or removed" [CITED]
+
+volumes:
+  gateway-data:                 # named volume; survives `docker compose down` (not `down -v`)
