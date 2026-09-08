@@ -3,16 +3,16 @@ gsd_state_version: "1.0"
 current_phase: 2
 current_phase_name: Analytics Retention & Storage Lifecycle
 status: executing
-stopped_at: Completed 02-01-PLAN.md
-last_updated: "2026-09-08T07:42:07.798Z"
+stopped_at: Completed 02-02-PLAN.md
+last_updated: "2026-09-08T07:58:26.706Z"
 last_activity: 2026-09-08
 last_activity_desc: Phase 2 execution started
-state_head: 234e2478ae954e8b06afe88be611289d0cde9784
+state_head: 84cd93215d33efb4e73d9531be7a78222e57e0c9
 progress:
   total_phases: 6
   completed_phases: 0
   total_plans: 6
-  completed_plans: 4
+  completed_plans: 5
   percent: 0
 ---
 
@@ -41,7 +41,7 @@ See: .planning/PROJECT.md (updated 2026-09-08)
 ## Current Position
 
 Phase: 2 (Analytics Retention & Storage Lifecycle) — EXECUTING
-Plan: 2 of 3
+Plan: 3 of 3
 Status: Ready to execute
 Last activity: 2026-09-08 — Phase 2 execution started
 
@@ -75,6 +75,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 01 P02 | 6 min | 2 tasks | 3 files |
 | Phase 01 P03 | 8min | 2 tasks | 1 files |
 | Phase 02 P01 | 18min | 3 tasks | 7 files |
+| Phase 02 P02 | 10min | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -95,6 +96,9 @@ Recent decisions affecting current work:
 - [Phase 2]: 02-01: auto_vacuum pragma contained on read-only DBs (try/except sqlite3.OperationalError) — write_probe keeps owning the curated abort; leaked-connection thread otherwise hangs interpreter exit
 - [Phase 2]: 02-01: startup purge is the writer consumer's first action; scheduling tests wait it out via the last_purged observable before asserting queue states
 - [Phase 2]: 02-01: retention validator tests placed in tests/test_startup_validation.py (repo convention) resolving the 02-PATTERNS/test_config.md discrepancy; REQUIREMENTS.md mark-complete deferred to 02-03 which carries [ANLT-01, ANLT-02]
+- [Phase 2]: 02-02: 6h purge tick = deadline wait_for(queue.get()) + get_nowait salvage inside the existing consumer loop — Phase-1 record path byte-identical; interval is a module constant (21600.0), ctor-injectable only (env surface stays single-knob)
+- [Phase 2]: 02-02: purge_expired gained between_batches hook (awaited per batch commit incl. final partial) + writer _drain_queued — mid-purge bursts persist in batch gaps, dropped == 0 (Pitfall 3 closed)
+- [Phase 2]: 02-02: burst-during-purge test polls purges_run >= 2 inside the try before stop() — wait_drained can return mid-purge because the between-batches hook empties the queue before the pass ends
 
 ### Pending Todos
 
@@ -117,6 +121,6 @@ Items acknowledged and deferred at milestone close, most recent first:
 
 ## Session Continuity
 
-Last session: 2026-09-08T07:42:07.772Z
-Stopped at: Completed 02-01-PLAN.md
+Last session: 2026-09-08T07:58:26.685Z
+Stopped at: Completed 02-02-PLAN.md
 Resume file: None

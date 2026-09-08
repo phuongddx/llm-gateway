@@ -57,7 +57,7 @@ Plans:
   2. Rows older than the TTL are purged automatically (at startup and periodically); `/v1/analytics/{summary,models,requests,credits}` serve the retained data correctly afterwards
   3. Purging never blocks or delays response streaming (fire-and-forget preserved) and WAL-mode concurrent reads keep working during purge; on-disk growth is bounded and space from purged rows is reclaimable (auto-vacuum on, or a documented one-liner)
 
-**Plans**: 1/3 plans executed
+**Plans**: 2/3 plans executed
 Plans:
 **Wave 1**
 
@@ -65,7 +65,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 02-02-PLAN.md — 6h deadline tick inside the writer loop + inter-batch drain; endpoints-post-purge and 20-stream burst-during-purge proofs (ANLT-02)
+- [x] 02-02-PLAN.md — 6h deadline tick inside the writer loop + inter-batch drain; endpoints-post-purge and 20-stream burst-during-purge proofs (ANLT-02)
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
@@ -133,7 +133,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 (optional)
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Gateway Runtime Hardening | 3/3 | Complete    | 2026-09-08 |
-| 2. Analytics Retention & Storage Lifecycle | 1/3 | In Progress|  |
+| 2. Analytics Retention & Storage Lifecycle | 2/3 | In Progress|  |
 | 3. Containerized Deployment & CI | 0/? | Not started | - |
 | 4. Observability & Resilience | 0/? | Not started | - |
 | 5. Routing Decision & Documentation Refresh | 0/? | Not started | - |
