@@ -83,7 +83,7 @@ Plans:
   3. The analytics SQLite database lives on a persistent volume and survives container recreation with all historical request logs intact
   4. GitHub Actions runs lint + tests (and builds the image) on push/PR; a red pipeline identifies a broken change before it reaches the deployed container
 
-**Plans**: 1/2 plans executed
+**Plans**: 2/2 plans executed
 Plans:
 **Wave 1**
 
@@ -91,7 +91,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 03-02-PLAN.md — CI: lint-green code fixes + blocking ruff SUS-legitimacy checkpoint + three-job GitHub Actions pipeline (lint / matrix 3.12+3.14 / docker-build) green on push to main (DEPL-03)
+- [x] 03-02-PLAN.md — CI: lint-green code fixes + blocking ruff SUS-legitimacy checkpoint + three-job GitHub Actions pipeline (lint / matrix 3.12+3.14 / docker-build) green on push to main (DEPL-03)
 
 ### Phase 4: Observability & Resilience
 
@@ -143,7 +143,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 (optional)
 |-------|----------------|--------|-----------|
 | 1. Gateway Runtime Hardening | 3/3 | Complete    | 2026-09-08 |
 | 2. Analytics Retention & Storage Lifecycle | 3/3 | Complete    | 2026-09-08 |
-| 3. Containerized Deployment & CI | 1/2 | In Progress|  |
+| 3. Containerized Deployment & CI | 2/2 | In Progress|  |
 | 4. Observability & Resilience | 0/? | Not started | - |
 | 5. Routing Decision & Documentation Refresh | 0/? | Not started | - |
 | 6. Stress-Support Chatbot MVP (Optional) | 0/? | Deferred (preconditions unmet) | - |
