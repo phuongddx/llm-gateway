@@ -27,8 +27,8 @@ findings:
   warning: 2
   info: 2
   total: 5
-status: issues_found
-fixed: []
+status: fixed
+fixed: [CR-01, WR-01, WR-02]
 ---
 
 # Phase 04: Code Review Report
@@ -36,7 +36,7 @@ fixed: []
 **Reviewed:** 2026-09-08T00:00:00Z
 **Depth:** deep
 **Files Reviewed:** 16
-**Status:** issues_found
+**Status:** fixed
 
 ## Summary
 
@@ -115,6 +115,23 @@ async def test_real_ratelimiterror_is_never_retried():
 **File:** `rate_limiter.py:13-17`
 **Issue:** `extract_bearer_key` treats any non-Bearer-prefixed or empty `Authorization` value as "no token" and falls back to `get_remote_address(request)`, which is a deliberate, documented, locked decision per the inline comment — not a bug. Flagged as Info only because the fallback means an attacker who simply omits/mangles the `Authorization` header trades a per-key limit for a per-IP limit, effectively getting a *shared* budget with every other unauthenticated caller behind the same NAT/proxy rather than a stricter one. Since `verify_auth` (unchanged, pre-existing) already 401s any request without a valid `APP_API_KEY` bearer token before this ever matters in practice, this has no exploitable effect in the current single-shared-key auth model — noted for awareness only, no fix required now.
 **Fix:** None required; would only become relevant if per-key auth (multiple distinct API keys) is introduced later.
+
+## Dispositions
+
+### CR-01 — fixed
+`Dockerfile:20` now copies `metrics.py` into the runtime stage (`COPY main.py config.py rate_limiter.py metrics.py ./`). Verified by an actual `docker compose up -d --build`: the container reaches Docker `healthy` status, and both `GET /health/ready` and `GET /metrics` respond `200` against the built image (not just the pytest checkout). Commit `8b44a27`.
+
+### WR-01 — fixed
+`tests/test_openai_compatible_base.py` no longer constructs bespoke `BalanceError`/`AuthError` stand-ins. `test_quota_1113_shaped_exception_is_never_retried` now raises a real `openai.APIStatusError` (HTTP 402 — the SDK's status-to-exception mapping has no dedicated 402 class, so the generic `APIStatusError` *is* the real production type for z.ai's "1113" balance error) and `test_auth_failure_shaped_exception_is_never_retried` now raises a real `openai.AuthenticationError` (401). Added two new tests, `test_real_ratelimiterror_is_never_retried` (429) and `test_real_permissiondeniederror_is_never_retried` (403), covering the remaining ZAI-3-excluded siblings of `APIStatusError`. Commit `1394821`.
+
+### WR-02 — fixed
+`analytics/db.py` gained `AnalyticsDB.ping()`, a read-only `SELECT 1` liveness probe (deliberately not `write_probe()`'s CREATE/DROP TABLE, since `/health/ready` may be polled far more often than startup). `main.py`'s `health_ready` now awaits `db.ping()` and returns `503 {"status":"not_ready"}` on any exception, in addition to the existing attribute-presence check. New regression test `test_health_ready_returns_503_when_db_ping_fails` closes the real analytics DB connection and asserts the endpoint now reports not-ready instead of a stale `200`. Commit `3081cac`.
+
+### IN-01 — accepted, deferred
+No code change required per the original review's own assessment (documentation-only follow-up: note near the Dockerfile `CMD`/README that horizontal scaling requires migrating off in-process counters). Left for a future phase that actually introduces multi-worker/multi-replica deployment; not in scope for Phase 04's single-process `CMD`.
+
+### IN-02 — accepted, no action
+Reviewer's own conclusion: not exploitable under the current single-shared-key `APP_API_KEY` auth model, since `verify_auth` already 401s any request lacking a valid bearer token before the rate-limiter's fallback path matters. Revisit only if per-key auth (multiple distinct API keys) is introduced.
 
 ---
 
