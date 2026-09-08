@@ -1,6 +1,6 @@
 """Integration tests for POST /v1/chat/completions endpoint."""
 
-import asyncio
+import json
 from unittest.mock import patch, AsyncMock
 
 import pytest
@@ -98,6 +98,22 @@ def _zai_stream_request():
     }
 
 
+def _sse_frames(text):
+    """Parse 'data: ' SSE frames (skipping [DONE]) into JSON objects."""
+    return [
+        json.loads(line[len("data: "):])
+        for line in text.splitlines()
+        if line.startswith("data: ") and line[len("data: "):] != "[DONE]"
+    ]
+
+
+def _error_frame(text):
+    """Return the single parsed error object from an SSE response body."""
+    frames = [f["error"] for f in _sse_frames(text) if "error" in f]
+    assert len(frames) == 1, f"expected exactly one error frame, got {frames}"
+    return frames[0]
+
+
 @pytest.mark.asyncio
 async def test_zai_coding_quota_error_frame(client, auth_headers):
     class QuotaProvider:
@@ -112,6 +128,12 @@ async def test_zai_coding_quota_error_frame(client, auth_headers):
         )
     assert "zai-coding quota exhausted" in response.text
     assert "Internal error" not in response.text
+    assert _error_frame(response.text) == {
+        "message": "zai-coding quota exhausted — resets within the 5-hour window",
+        "type": "rate_limit_error",
+        "code": "zai_quota_exhausted",
+    }
+    assert response.text.endswith("data: [DONE]\n\n")
 
 
 @pytest.mark.asyncio
@@ -127,6 +149,11 @@ async def test_zai_coding_auth_error_frame(client, auth_headers):
             "/v1/chat/completions", json=_zai_stream_request(), headers=auth_headers
         )
     assert "zai-coding authentication failed" in response.text
+    assert _error_frame(response.text) == {
+        "message": "zai-coding authentication failed",
+        "type": "authentication_error",
+        "code": "zai_auth_failed",
+    }
 
 
 @pytest.mark.asyncio
@@ -145,6 +172,11 @@ async def test_zai_coding_1113_code_maps_to_quota(client, auth_headers):
             "/v1/chat/completions", json=_zai_stream_request(), headers=auth_headers
         )
     assert "zai-coding quota exhausted" in response.text
+    assert _error_frame(response.text) == {
+        "message": "zai-coding quota exhausted — resets within the 5-hour window",
+        "type": "rate_limit_error",
+        "code": "zai_quota_exhausted",
+    }
 
 
 @pytest.mark.asyncio
@@ -162,10 +194,37 @@ async def test_generic_provider_error_unaffected(client, auth_headers):
             headers=auth_headers,
         )
     assert "Internal error processing request" in response.text
+    err = _error_frame(response.text)
+    assert err == {"message": "Internal error processing request", "type": "server_error"}
+    assert "code" not in err
+    assert "Provider failed" not in response.text
+    assert response.text.endswith("data: [DONE]\n\n")
 
 
 @pytest.mark.asyncio
-async def test_zai_coding_request_logs_credits(client, auth_headers, analytics_db):
+async def test_empty_message_exception_yields_generic_frame(client, auth_headers):
+    """Exception whose str() is empty still maps to the curated generic object."""
+    class EmptyMessageProvider:
+        async def chat_stream(self, messages, system_prompt, params=None):
+            yield ("tok", None)
+            raise RuntimeError()  # str(e) == ""
+            yield ("", None)  # unreachable: makes this an async generator
+
+    with patch("routes.chat.create_provider", return_value=EmptyMessageProvider()), \
+         patch("routes.chat.resolve_provider", return_value=("manifest", "gpt-4o")):
+        response = await client.post(
+            "/v1/chat/completions",
+            json={"model": "gpt-4o", "messages": [{"role": "user", "content": "hi"}]},
+            headers=auth_headers,
+        )
+    err = _error_frame(response.text)
+    assert err == {"message": "Internal error processing request", "type": "server_error"}
+    assert "code" not in err
+    assert response.text.endswith("data: [DONE]\n\n")
+
+
+@pytest.mark.asyncio
+async def test_zai_coding_request_logs_credits(client, auth_headers, analytics_db, analytics_writer):
     # 3-arg-tolerant signature: the route calls chat_stream(messages, system_prompt, gen_params)
     class CreditUsageProvider:
         async def chat_stream(self, *args, **kwargs):
@@ -183,7 +242,7 @@ async def test_zai_coding_request_logs_credits(client, auth_headers, analytics_d
             "/v1/chat/completions", json=_zai_stream_request(), headers=auth_headers
         )
 
-    await asyncio.sleep(0.1)  # fire-and-forget log task
+    await analytics_writer.wait_drained(5.0)  # deterministic drain before row assertions
     summary = await analytics_db.get_credits_summary()
     # 36.6 peak / 18.3 off-peak depending on wall clock — accept either
     assert summary["credits_7d"] in (pytest.approx(36.6), pytest.approx(18.3))
