@@ -10,5 +10,13 @@ services:
     restart: unless-stopped     # "restarts … irrespective of the exit code but stops
                                #  restarting when the service is stopped or removed" [CITED]
 
+  prometheus:
+    image: prom/prometheus:v3.14.0   # pinned, non-latest — reproducibility
+    profiles: ["observability"]      # opt-in only: `docker compose --profile observability up`
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "9090:9090"
+
 volumes:
   gateway-data:                 # named volume; survives `docker compose down` (not `down -v`)
