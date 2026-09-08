@@ -10,7 +10,7 @@ A FastAPI-based API gateway that routes chat completion requests through Manifes
 - **OpenAI-compatible API** -- standard `/v1/chat/completions` endpoint
 - **Server-Sent Events streaming** -- real-time token delivery with usage metadata
 - **Analytics pipeline** -- SQLite-backed request logging with TTFT, latency tracking
-- **Analytics API** -- summary stats, per-model breakdowns, recent requests
+- **Analytics API** -- summary stats, per-model breakdowns, recent requests, GLM credit burn
 - **Bearer token authentication** -- simple API key gating
 
 ## Quick Start
@@ -158,6 +158,16 @@ Paginated list of recent requests.
 | `since` | `string` | -- | ISO 8601 datetime filter |
 | `limit` | `int` | 50 | Max results (1-200) |
 | `offset` | `int` | 0 | Pagination offset |
+
+### GET /v1/analytics/credits
+
+Estimated z.ai GLM Coding Plan credit burn against configured quotas (rolling 5-hour and 7-day windows).
+
+```bash
+curl -H "Authorization: Bearer changeme" http://localhost:8000/v1/analytics/credits
+```
+
+Returns: `window_5h` (`credits_used`, `quota`), `window_7d_rolling` (`credits_used`, `quota`, `note`), `by_model` (per-model credits/requests), `off_peak_share`. Both windows are rolling estimates — z.ai resets credits dynamically (5h after consumption; weekly on the subscription anniversary).
 
 ### GET /health
 
