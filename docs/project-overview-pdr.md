@@ -38,7 +38,7 @@ Applications that integrate with LLMs face vendor lock-in when they hardcode cal
 | FR-8 | Route to DeepSeek provider | Must | Superseded (2026-04-19) |
 | FR-9 | Route to MoonshotAI (Kimi) provider | Must | Superseded (2026-04-19) |
 | FR-10 | Route to Gemini provider via `google-genai` SDK | Must | Superseded (2026-04-19) |
-| FR-11 | Route `glm-*` models to the z.ai GLM Coding Plan endpoint (superseded 2026-04-19 as a native provider, re-routed 2026-09-07 to the coding endpoint — current Baseline contract, not historical) | Must | Superseded (2026-04-19) |
+| FR-11 | Route `glm-*` models to the z.ai GLM Coding Plan endpoint (superseded 2026-04-19 as a native provider, re-routed 2026-09-07 to the coding endpoint — current Baseline contract, not historical) | Must | Superseded as native provider (2026-04-19); current form Done |
 | FR-12 | Route to MiniMax provider | Must | Superseded (2026-04-19) |
 | FR-13 | Route to ByteDance (Doubao) provider | Must | Superseded (2026-04-19) |
 | FR-14 | List available models via `GET /v1/models` | Must | Done |
@@ -74,10 +74,10 @@ FR-7 through FR-13 and FR-19 describe the pre-2026-04-19 native 8-provider archi
 
 ## Out of Scope (Phase 2)
 
-- Request queuing or rate limiting (Rate limiting delivered — Phase 4; request queuing/backpressure remains N/A)
+- Request queuing or rate limiting (Rate limiting delivered — Phase 3, see project-roadmap.md; request queuing/backpressure remains N/A)
 - Conversation history persistence
 - Docker containerization (Delivered — Phase 3, see project-roadmap.md)
-- Structured logging or observability (Prometheus, OpenTelemetry) (Delivered — Phase 4)
+- Structured logging or observability (Prometheus, OpenTelemetry) (Delivered — Phase 3, see project-roadmap.md)
 - Horizontal scaling / load balancing
 - API versioning
 

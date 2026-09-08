@@ -7,7 +7,7 @@
 | Python files | snake_case | `providers/manifest.py`, `providers/zai_coding.py`, `analytics/routing.py` |
 | Classes | PascalCase | `GeminiProvider`, `LLMProvider`, `AnalyticsDB` |
 | Functions/methods | snake_case | `chat_stream()`, `create_provider()`, `resolve_provider()` |
-| Constants | UPPER_SNAKE | `_ROLE_MAP`, `MODEL_ROUTING`, `GLM_CANONICAL` |
+| Constants | UPPER_SNAKE | `AVAILABLE_MODELS`, `MODEL_ROUTING`, `GLM_CANONICAL` |
 | Environment variables | UPPER_SNAKE | `MANIFEST_API_KEY`, `ZAI_CODING_API_KEY`, `ANALYTICS_DB_PATH` |
 | Pydantic fields | snake_case | `openai_api_key`, `analytics_db_path` |
 | Route prefixes | kebab-case | `/v1/analytics/summary` |
