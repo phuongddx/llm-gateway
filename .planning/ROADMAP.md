@@ -16,7 +16,7 @@ The gateway is live and validated: an OpenAI-compatible FastAPI service routing 
 Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Gateway Runtime Hardening** - Fail fast on bad config; bounded analytics writes under concurrent streaming; OpenAI-format SSE error frames (completed 2026-09-08)
-- [ ] **Phase 2: Analytics Retention & Storage Lifecycle** - Stop unbounded `request_logs` growth with a configurable, automatically enforced retention policy
+- [x] **Phase 2: Analytics Retention & Storage Lifecycle** - Stop unbounded `request_logs` growth with a configurable, automatically enforced retention policy (completed 2026-09-08)
 - [ ] **Phase 3: Containerized Deployment & CI** - Multi-stage non-root Docker image, single-container Compose deployment, GitHub Actions pipeline
 - [ ] **Phase 4: Observability & Resilience** - Prometheus metrics, per-key rate limiting, same-provider-only transient retry; liveness vs readiness
 - [ ] **Phase 5: Routing Decision & Documentation Refresh** - Resolve the `model="auto"` deprecation decision; refresh the four stale docs to shipped reality
@@ -133,7 +133,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 (optional)
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Gateway Runtime Hardening | 3/3 | Complete    | 2026-09-08 |
-| 2. Analytics Retention & Storage Lifecycle | 3/3 | In Progress|  |
+| 2. Analytics Retention & Storage Lifecycle | 3/3 | Complete    | 2026-09-08 |
 | 3. Containerized Deployment & CI | 0/? | Not started | - |
 | 4. Observability & Resilience | 0/? | Not started | - |
 | 5. Routing Decision & Documentation Refresh | 0/? | Not started | - |
