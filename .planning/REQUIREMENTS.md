@@ -60,8 +60,8 @@ Derived from ingest open items: production-readiness backlog, analytics retentio
 
 ### Deployment (Phase 3)
 
-- [ ] **DEPL-01**: Gateway ships as a multi-stage, non-root Docker image that reaches request-readiness <3s from process start (NFR-04 holds in-container)
-- [ ] **DEPL-02**: `docker compose up` on a fresh clone with `.env` brings the gateway to a green healthcheck (`GET /health`); analytics DB persists on a volume across container recreation; all config via single-`.env` passthrough, no secrets baked into the image
+- [x] **DEPL-01**: Gateway ships as a multi-stage, non-root Docker image that reaches request-readiness <3s from process start (NFR-04 holds in-container)
+- [x] **DEPL-02**: `docker compose up` on a fresh clone with `.env` brings the gateway to a green healthcheck (`GET /health`); analytics DB persists on a volume across container recreation; all config via single-`.env` passthrough, no secrets baked into the image
 - [ ] **DEPL-03**: GitHub Actions runs lint + tests (and builds the image) on push/PR — broken changes are caught by CI before reaching the deployed container
 
 ### Observability & Resilience (Phase 4)
@@ -122,8 +122,8 @@ v1 (active) requirements → phases. Baseline and Historical sections are intent
 | RELI-03 | Phase 1 | Complete |
 | ANLT-01 | Phase 2 | Complete |
 | ANLT-02 | Phase 2 | Complete |
-| DEPL-01 | Phase 3 | Pending |
-| DEPL-02 | Phase 3 | Pending |
+| DEPL-01 | Phase 3 | Complete |
+| DEPL-02 | Phase 3 | Complete |
 | DEPL-03 | Phase 3 | Pending |
 | OBSV-01 | Phase 4 | Pending |
 | OBSV-02 | Phase 4 | Pending |

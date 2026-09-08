@@ -83,11 +83,11 @@ Plans:
   3. The analytics SQLite database lives on a persistent volume and survives container recreation with all historical request logs intact
   4. GitHub Actions runs lint + tests (and builds the image) on push/PR; a red pipeline identifies a broken change before it reaches the deployed container
 
-**Plans**: 2 plans
+**Plans**: 1/2 plans executed
 Plans:
 **Wave 1**
 
-- [ ] 03-01-PLAN.md — tracer: AsyncGenerator 3.12 fix → multi-stage non-root image → single-service compose → green /health + volume persistence + measured <3s readiness on the operator-started Rancher Desktop daemon; README deployment quickstart (DEPL-01, DEPL-02)
+- [x] 03-01-PLAN.md — tracer: AsyncGenerator 3.12 fix → multi-stage non-root image → single-service compose → green /health + volume persistence + measured <3s readiness on the operator-started Rancher Desktop daemon; README deployment quickstart (DEPL-01, DEPL-02)
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
@@ -134,6 +134,7 @@ Plans:
 **Plans**: TBD (do not plan until preconditions resolved)
 
 ## Progress
+
 | 3. Containerized Deployment & CI | 0/2 | Not started | - |
 **Execution Order:**
 Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 (optional)
@@ -142,7 +143,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 (optional)
 |-------|----------------|--------|-----------|
 | 1. Gateway Runtime Hardening | 3/3 | Complete    | 2026-09-08 |
 | 2. Analytics Retention & Storage Lifecycle | 3/3 | Complete    | 2026-09-08 |
-| 3. Containerized Deployment & CI | 0/? | Not started | - |
+| 3. Containerized Deployment & CI | 1/2 | In Progress|  |
 | 4. Observability & Resilience | 0/? | Not started | - |
 | 5. Routing Decision & Documentation Refresh | 0/? | Not started | - |
 | 6. Stress-Support Chatbot MVP (Optional) | 0/? | Deferred (preconditions unmet) | - |
