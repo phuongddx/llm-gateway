@@ -49,45 +49,23 @@ make stop
 
 ## Environment Variables Reference
 
-### Core Settings
+All settings are read by `config.py`'s `Settings` class (pydantic `BaseSettings`, loads
+from `.env`, unknown keys ignored):
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `APP_API_KEY` | Yes | `changeme` | Bearer token for gateway authentication |
+| `APP_API_KEY` | Yes | none (must be set) | Bearer token for gateway authentication |
+| `MANIFEST_API_KEY` | No | none | Manifest.build key -- routes to 500+ models |
+| `ZAI_CODING_API_KEY` | No | none | Z.AI GLM Coding Plan key -- routes `glm-*` models to the z.ai coding endpoint; unset keeps GLM routing on Manifest |
+| `ZAI_CREDITS_5H` | No | `28000` | GLM Coding Plan 5-hour credit quota (Max tier default) |
+| `ZAI_CREDITS_WEEK` | No | `140000` | GLM Coding Plan weekly credit quota (Max tier default) |
+| `LLM_API_KEY` | No | none | Fallback key used if `MANIFEST_API_KEY` or `ZAI_CODING_API_KEY` is not set |
+| `CORS_ORIGINS` | No | empty | Comma-separated allowed origins (empty = no CORS headers) |
+| `RATE_LIMIT` | No | `60/minute` | Max requests per window, per client IP |
+| `RATE_LIMIT_PER_KEY` | No | `60/minute` | Max requests per window, per Bearer token -- applies independently alongside `RATE_LIMIT` |
 | `ANALYTICS_DB_PATH` | No | `data/analytics.db` | SQLite database path for analytics |
-
-### Provider API Keys
-
-| Variable | Description |
-|----------|-------------|
-| `LLM_API_KEY` | Legacy fallback key (used if per-provider key not set) |
-| `OPENAI_API_KEY` | OpenAI API key (gpt-4o, gpt-4o-mini, o3) |
-| `DEEPSEEK_API_KEY` | DeepSeek API key (deepseek-chat, deepseek-reasoner) |
-| `MOONSHOT_API_KEY` | MoonshotAI API key (kimi-k2.5, moonshot-v1-128k) |
-| `BYTEDANCE_API_KEY` | ByteDance Doubao API key (doubao-pro-*) |
-| `GLM_API_KEY` | Z.AI GLM API key (glm-5.1, glm-4.7-flash, etc.) |
-
-Note: Gemini and MiniMax use `LLM_API_KEY` as their provider key (no dedicated env var). Set `LLM_API_KEY` if using these providers.
-
-### Legacy Settings (still supported)
-
-| Variable | Required | Default | Description |
-|----------|----------|---------|-------------|
-| `LLM_PROVIDER` | No | `gemini` | Legacy single-provider mode |
-| `LLM_MODEL` | No | Provider default | Override model name |
-| `LLM_BASE_URL` | No | Provider default | Override provider API base URL |
-
-### Default Models by Provider
-
-| Provider | Default Model | Base URL |
-|----------|---------------|----------|
-| `openai` | `gpt-4o` | `https://api.openai.com/v1` |
-| `deepseek` | `deepseek-chat` | `https://api.deepseek.com` |
-| `moonshot` | `kimi-k2.5` | `https://api.moonshot.cn/v1` |
-| `gemini` | `gemini-2.5-flash` | N/A (uses SDK default) |
-| `glm` | `glm-4.7-flash` | `https://api.z.ai/api/paas/v4` |
-| `minimax` | `MiniMax-Text-01` | `https://api.minimax.chat/v1` |
-| `bytedance` | *(endpoint ID required)* | `https://ark.cn-beijing.volces.com/api/v3` |
+| `ANALYTICS_QUEUE_SIZE` | No | `1000` | Bounded analytics write queue size (drop-newest when full) |
+| `ANALYTICS_RETENTION_DAYS` | No | `90` | Analytics log retention in days (`0` = keep forever) |
 
 ## Production Deployment
 
@@ -100,8 +78,8 @@ python3 -m venv .venv
 
 # 2. Set environment variables (use secrets manager, not .env file in production)
 export APP_API_KEY=$(cat /run/secrets/app_api_key)
-export OPENAI_API_KEY=$(cat /run/secrets/openai_key)
-export DEEPSEEK_API_KEY=$(cat /run/secrets/deepseek_key)
+export MANIFEST_API_KEY=$(cat /run/secrets/manifest_key)
+export ZAI_CODING_API_KEY=$(cat /run/secrets/zai_coding_key)
 export ANALYTICS_DB_PATH=/data/analytics.db
 
 # 3. Run with uvicorn
@@ -114,7 +92,7 @@ export ANALYTICS_DB_PATH=/data/analytics.db
 - **TLS**: Terminate TLS at the reverse proxy, not in uvicorn
 - **Secrets**: Use environment variables or secrets manager, never commit `.env` to version control
 - **Logging**: Configure Python logging to output structured JSON
-- **Health checks**: Use `GET /health` for load balancer health checks
+- **Health checks**: Use `GET /health/live` for liveness and `GET /health/ready` for readiness/load-balancer health checks (the old single `/health` endpoint was removed with no back-compat alias)
 - **Analytics DB**: Store on persistent volume, `data/` dir is auto-created on startup
 
 ### Process Manager
@@ -139,29 +117,48 @@ Restart=always
 WantedBy=multi-user.target
 ```
 
-## Docker (Future)
+## Docker / Compose Deployment
 
-Not yet implemented. Planned approach:
+Build and run via Make targets, which wrap Docker/Compose directly:
 
-```dockerfile
-FROM python:3.12-slim
-WORKDIR /app
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-COPY . .
-RUN mkdir -p data
-EXPOSE 8000
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
-```
-
-Run:
 ```bash
-docker build -t llm-gateway .
-docker run -e APP_API_KEY=your-secret \
-           -e OPENAI_API_KEY=your-key \
-           -v /persistent/analytics.db:/data/analytics.db \
-           -p 8000:8000 llm-gateway
+# Build the image
+make docker-build
+# Equivalent to: docker build -t llm-gateway:latest .
+
+# Start the gateway (builds the image and starts the container)
+make docker-up
+# Equivalent to: docker compose up -d --build
+
+# Stop the gateway
+make docker-down
+# Equivalent to: docker compose down
 ```
+
+The image is a multi-stage `python:3.12-slim` build (dependencies installed in a `builder`
+stage, then copied into a slim runtime stage) that runs as a non-root `gateway` user, not
+root.
+
+`docker-compose.yml`:
+- Mounts a named `gateway-data` volume at `/app/data`, matching the default
+  `ANALYTICS_DB_PATH=data/analytics.db` (CWD-relative inside the container). The volume
+  survives `docker compose down`; only `docker compose down -v` removes it.
+- Passes configuration via `env_file: .env` (required -- the container errors loudly if
+  `.env` is missing).
+- Sets `restart: unless-stopped`.
+- The container's `HEALTHCHECK` polls `GET /health/ready` every 30s
+  (`--interval=30s --timeout=5s --start-period=10s --retries=3`).
+
+An optional Prometheus sidecar is available behind a Compose profile -- it does not start
+by default:
+
+```bash
+docker compose --profile observability up
+```
+
+This starts a pinned `prom/prometheus:v3.14.0` container, reachable at
+`http://localhost:9090`, scraping the gateway's `/metrics` endpoint per
+`prometheus/prometheus.yml`.
 
 ## Ngrok Tunnel (Local Expose)
 
@@ -196,8 +193,7 @@ Requires ngrok installed and authenticated. Use for testing webhooks or remote a
 
 ### Provider errors in SSE stream
 
-- Verify provider-specific API key is set (e.g., `OPENAI_API_KEY`, `DEEPSEEK_API_KEY`)
-- If using Gemini/MiniMax: set `LLM_API_KEY`; for GLM: set `GLM_API_KEY`
+- Verify `MANIFEST_API_KEY` (or `LLM_API_KEY` fallback) is set for non-GLM models, and `ZAI_CODING_API_KEY` (or `LLM_API_KEY` fallback) is set for `glm-*` models to route to the z.ai coding endpoint -- without an effective z.ai key, GLM models silently degrade to Manifest with canonical ids (no error)
 - Check provider API status page for outages
 
 ### Analytics not recording
