@@ -13,8 +13,8 @@ from pydantic import BaseModel
 from analytics.cost import calculate_cost, estimate_credits
 from analytics.routing import resolve_provider
 from config import settings
-from rate_limiter import limiter
 from providers import create_provider
+from rate_limiter import limiter
 
 logger = logging.getLogger(__name__)
 
@@ -41,7 +41,7 @@ def verify_auth(authorization: str = Header(...)):
 
 @router.post("/v1/chat/completions")
 @limiter.limit(settings.rate_limit)
-async def chat(request: Request, body: ChatRequest, _auth=Depends(verify_auth)):
+async def chat(request: Request, body: ChatRequest, _auth=Depends(verify_auth)):  # noqa: B008 -- FastAPI DI convention
     # Resolve model name to (provider, actual_model_id) — passthrough for unknown models
     provider_name, model_id = resolve_provider(body.model)
 
@@ -85,7 +85,7 @@ async def _tracked_stream(
                 token_count += len(token) // 4  # Approximate token count
                 yield f"data: {json.dumps({'token': token})}\n\n"
 
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 -- must never crash the request; see AGENTS.md Error handling
         error_msg = str(e)
         logger.error("Provider stream error: %s", error_msg)
         client_msg = "Internal error processing request"

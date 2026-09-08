@@ -36,8 +36,8 @@ def _record(i: int) -> dict:
 async def test_lifespan_startup_purge_removes_expired_rows_end_to_end(monkeypatch, tmp_path):
     """One real lifespan startup: the writer task's first action purges the
     expired row from a pre-seeded existing DB file and retains the fresh one."""
-    from main import app, lifespan
     from config import settings
+    from main import app, lifespan
 
     # Seed a real file DB before lifespan — the purge must apply to existing
     # databases with no manual SQL (ANLT-01).
@@ -302,8 +302,8 @@ async def test_startup_purge_does_not_block_lifespan_readiness(monkeypatch, tmp_
     """With purge_expired gated on a never-set Event, the lifespan still
     reaches its yield point — request readiness never awaits a purge (NFR-04);
     the fire-and-forget guarantee holds at startup."""
-    from main import app, lifespan
     from config import settings
+    from main import app, lifespan
 
     entered = asyncio.Event()  # set at the lifespan yield point (request-ready)
     gate = asyncio.Event()  # closed until the assertions are done

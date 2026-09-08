@@ -73,8 +73,8 @@ def test_settings_default_constructs_without_app_api_key():
 
 @pytest.mark.asyncio
 async def test_missing_app_api_key_aborts_naming_variable(monkeypatch, tmp_path):
-    from main import app, lifespan
     from config import settings
+    from main import app, lifespan
 
     monkeypatch.setattr(settings, "app_api_key", "")
     monkeypatch.setattr(settings, "analytics_db_path", str(tmp_path / "a.db"))
@@ -85,8 +85,8 @@ async def test_missing_app_api_key_aborts_naming_variable(monkeypatch, tmp_path)
 
 @pytest.mark.asyncio
 async def test_no_effective_zai_key_logs_notice_no_abort(monkeypatch, tmp_path, caplog):
-    from main import app, lifespan
     from config import settings
+    from main import app, lifespan
 
     monkeypatch.setattr(settings, "app_api_key", "k")
     monkeypatch.setattr(settings, "zai_coding_api_key", "")
@@ -103,8 +103,8 @@ async def test_no_effective_zai_key_logs_notice_no_abort(monkeypatch, tmp_path, 
 
 @pytest.mark.asyncio
 async def test_no_effective_manifest_key_logs_notice_no_abort(monkeypatch, tmp_path, caplog):
-    from main import app, lifespan
     from config import settings
+    from main import app, lifespan
 
     monkeypatch.setattr(settings, "app_api_key", "k")
     monkeypatch.setattr(settings, "manifest_api_key", "")
@@ -118,8 +118,8 @@ async def test_no_effective_manifest_key_logs_notice_no_abort(monkeypatch, tmp_p
 
 @pytest.mark.asyncio
 async def test_unwritable_analytics_db_path_aborts(monkeypatch, tmp_path):
-    from main import app, lifespan
     from config import settings
+    from main import app, lifespan
 
     readonly_dir = tmp_path / "readonly"
     readonly_dir.mkdir()
@@ -139,8 +139,8 @@ async def test_readonly_analytics_db_file_aborts_at_write_probe(monkeypatch, tmp
     """Read-only DB *file* under a writable parent: mkdir/os.access/initialize
     all pass — only the post-initialize write probe catches it (IM-02)."""
     from analytics.db import AnalyticsDB
-    from main import app, lifespan
     from config import settings
+    from main import app, lifespan
 
     db_path = tmp_path / "a.db"
     seed = AnalyticsDB(str(db_path))  # pre-existing schema, e.g. restored from backup
@@ -162,8 +162,8 @@ async def test_readonly_analytics_db_file_aborts_at_write_probe(monkeypatch, tmp
 async def test_uncreatable_analytics_parent_aborts_with_curated_error(monkeypatch, tmp_path):
     """mkdir EACCES on a deeper path surfaces as the curated RuntimeError
     naming ANALYTICS_DB_PATH, not a bare PermissionError (MN-02)."""
-    from main import app, lifespan
     from config import settings
+    from main import app, lifespan
 
     readonly_dir = tmp_path / "readonly"
     readonly_dir.mkdir()
@@ -180,8 +180,8 @@ async def test_uncreatable_analytics_parent_aborts_with_curated_error(monkeypatc
 
 @pytest.mark.asyncio
 async def test_startup_abort_is_deterministic_and_side_effect_free(monkeypatch, tmp_path):
-    from main import app, lifespan
     from config import settings
+    from main import app, lifespan
 
     db_path = tmp_path / "a.db"
     monkeypatch.setattr(settings, "app_api_key", "")
@@ -195,8 +195,8 @@ async def test_startup_abort_is_deterministic_and_side_effect_free(monkeypatch, 
 
 @pytest.mark.asyncio
 async def test_startup_logs_never_contain_secret_values(monkeypatch, tmp_path, caplog):
-    from main import app, lifespan
     from config import settings
+    from main import app, lifespan
 
     sentinels = {
         "app_api_key": "sk-app-SENTINEL-123",

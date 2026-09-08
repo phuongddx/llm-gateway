@@ -19,7 +19,7 @@ def _get_db(request: Request):
 
 
 @router.get("/v1/models")
-async def list_models(_auth=Depends(verify_auth)):
+async def list_models(_auth=Depends(verify_auth)):  # noqa: B008 -- FastAPI DI convention
     """OpenAI-compatible model listing from routing table."""
     models = []
     for model_name, (provider, _) in MODEL_ROUTING.items():
@@ -38,7 +38,7 @@ analytics_router = APIRouter(prefix="/v1/analytics", tags=["analytics"])
 async def get_summary(
     request: Request,
     since: str | None = Query(None, description="ISO 8601 datetime filter"),
-    _auth=Depends(verify_auth),
+    _auth=Depends(verify_auth),  # noqa: B008 -- FastAPI DI convention
 ):
     """Aggregate stats across all requests."""
     db = _get_db(request)
@@ -50,7 +50,7 @@ async def get_model_stats(
     request: Request,
     since: str | None = Query(None),
     provider: str | None = Query(None),
-    _auth=Depends(verify_auth),
+    _auth=Depends(verify_auth),  # noqa: B008 -- FastAPI DI convention
 ):
     """Per-model stats grouped by model name."""
     db = _get_db(request)
@@ -63,7 +63,7 @@ async def get_requests(
     since: str | None = Query(None),
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
-    _auth=Depends(verify_auth),
+    _auth=Depends(verify_auth),  # noqa: B008 -- FastAPI DI convention
 ):
     """Paginated list of recent requests."""
     db = _get_db(request)
@@ -71,7 +71,7 @@ async def get_requests(
 
 
 @analytics_router.get("/credits")
-async def get_credits(request: Request, _auth=Depends(verify_auth)):
+async def get_credits(request: Request, _auth=Depends(verify_auth)):  # noqa: B008 -- FastAPI DI convention
     """Estimated z.ai coding-plan credit burn vs configured quota."""
     db = _get_db(request)
     summary = await db.get_credits_summary()

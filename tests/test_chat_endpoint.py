@@ -1,7 +1,7 @@
 """Integration tests for POST /v1/chat/completions endpoint."""
 
 import json
-from unittest.mock import patch, AsyncMock
+from unittest.mock import AsyncMock, patch
 
 import pytest
 

@@ -53,7 +53,7 @@ async def test_usage_without_cache_details_omits_key():
     provider = _provider_with_chunks([
         _chunk(usage=_usage(prompt=10, completion=3, total=13, cached=None)),
     ])
-    _, usage = [c async for c in provider.chat_stream([{"role": "user", "content": "x"}], "")][0]
+    _, usage = [c async for c in provider.chat_stream([{"role": "user", "content": "x"}], "")][0]  # noqa: RUF015 -- next() doesn't apply to async generators
     assert "cached_tokens" not in usage
 
 
@@ -62,5 +62,5 @@ async def test_zero_cached_tokens_omitted():
     provider = _provider_with_chunks([
         _chunk(usage=_usage(cached=0)),
     ])
-    _, usage = [c async for c in provider.chat_stream([{"role": "user", "content": "x"}], "")][0]
+    _, usage = [c async for c in provider.chat_stream([{"role": "user", "content": "x"}], "")][0]  # noqa: RUF015 -- next() doesn't apply to async generators
     assert "cached_tokens" not in usage

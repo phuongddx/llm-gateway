@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
-from typing import AsyncGenerator, NotRequired, TypedDict
+from collections.abc import AsyncGenerator
+from typing import NotRequired, TypedDict
 
 
 class UsageData(TypedDict):

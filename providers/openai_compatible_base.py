@@ -31,12 +31,12 @@ class OpenAICompatibleProvider(LLMProvider):
             all_messages.append({"role": "system", "content": system_prompt})
         all_messages.extend(messages)
 
-        kwargs = dict(
-            model=self.model,
-            messages=all_messages,
-            stream=True,
-            stream_options={"include_usage": True},
-        )
+        kwargs = {
+            "model": self.model,
+            "messages": all_messages,
+            "stream": True,
+            "stream_options": {"include_usage": True},
+        }
         if params:
             if "temperature" in params:
                 kwargs["temperature"] = params["temperature"]

@@ -90,8 +90,11 @@ async def health():
 
 
 # Mount route routers (deferred imports to avoid circular deps)
-from routes.chat import router as chat_router  # noqa: E402
-from routes.analytics import router as analytics_router, analytics_router as analytics_api_router  # noqa: E402
+from routes.analytics import (  # noqa: E402,RUF100
+    analytics_router as analytics_api_router,
+)
+from routes.analytics import router as analytics_router  # noqa: E402,RUF100
+from routes.chat import router as chat_router  # noqa: E402,RUF100
 
 app.include_router(chat_router)
 app.include_router(analytics_router)
