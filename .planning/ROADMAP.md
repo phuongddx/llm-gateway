@@ -18,7 +18,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 1: Gateway Runtime Hardening** - Fail fast on bad config; bounded analytics writes under concurrent streaming; OpenAI-format SSE error frames (completed 2026-09-08)
 - [x] **Phase 2: Analytics Retention & Storage Lifecycle** - Stop unbounded `request_logs` growth with a configurable, automatically enforced retention policy (completed 2026-09-08)
 - [x] **Phase 3: Containerized Deployment & CI** - Multi-stage non-root Docker image, single-container Compose deployment, GitHub Actions pipeline (completed 2026-09-08)
-- [ ] **Phase 4: Observability & Resilience** - Prometheus metrics, per-key rate limiting, same-provider-only transient retry; liveness vs readiness
+- [x] **Phase 4: Observability & Resilience** - Prometheus metrics, per-key rate limiting, same-provider-only transient retry; liveness vs readiness (completed 2026-09-08)
 - [ ] **Phase 5: Routing Decision & Documentation Refresh** - Resolve the `model="auto"` deprecation decision; refresh the four stale docs to shipped reality
 - [ ] **Phase 6: Stress-Support Chatbot MVP (Optional)** - Future direction on top of the gateway; DO NOT START until preconditions are met
 
@@ -157,6 +157,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 (optional)
 | 1. Gateway Runtime Hardening | 3/3 | Complete    | 2026-09-08 |
 | 2. Analytics Retention & Storage Lifecycle | 3/3 | Complete    | 2026-09-08 |
 | 3. Containerized Deployment & CI | 2/2 | Complete    | 2026-09-08 |
-| 4. Observability & Resilience | 4/4 | In Progress|  |
+| 4. Observability & Resilience | 4/4 | Complete    | 2026-09-08 |
 | 5. Routing Decision & Documentation Refresh | 0/? | Not started | - |
 | 6. Stress-Support Chatbot MVP (Optional) | 0/? | Deferred (preconditions unmet) | - |
