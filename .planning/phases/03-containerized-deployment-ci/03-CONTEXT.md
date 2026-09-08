@@ -64,3 +64,7 @@ No specific requirements — open to standard approaches.
 None — discussion stayed within phase scope.
 
 </deferred>
+
+### Post-Research Decisions (user, 2026-09-08)
+- CI adds a tiny ruff lint job (ruff stays OUT of requirements.txt — CI-only dep) and the 4 existing findings are fixed (F821 AsyncGenerator import in providers/openai_compatible_base.py — a real Python-3.12 crasher — plus 3 dead symbols). Satisfies DEPL-03 "lint + tests".
+- DEPL-02 runtime acceptance is proven LOCALLY: operator starts Rancher Desktop; acceptance runs compose up + /health + volume persistence live.
