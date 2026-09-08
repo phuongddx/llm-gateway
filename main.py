@@ -43,6 +43,13 @@ async def lifespan(app: FastAPI):
         raise RuntimeError(f"ANALYTICS_DB_PATH parent directory is not writable: {parent}")
     db = AnalyticsDB(db_path)
     await db.initialize()
+    try:
+        # A read-only DB *file* passes mkdir/os.access and initialize() (WAL
+        # no-ops) — only a real write proves analytics can persist at all.
+        await db.write_probe()
+    except Exception as e:
+        await db.close()
+        raise RuntimeError(f"ANALYTICS_DB_PATH is not writable: {db_path} ({e})") from e
     writer = AnalyticsWriter(db, queue_size=settings.analytics_queue_size)
     writer.start()
     app.state.analytics_db = db

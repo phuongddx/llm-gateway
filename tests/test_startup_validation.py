@@ -112,6 +112,30 @@ async def test_unwritable_analytics_db_path_aborts(monkeypatch, tmp_path):
 
 
 @pytest.mark.asyncio
+async def test_readonly_analytics_db_file_aborts_at_write_probe(monkeypatch, tmp_path):
+    """Read-only DB *file* under a writable parent: mkdir/os.access/initialize
+    all pass — only the post-initialize write probe catches it (IM-02)."""
+    from analytics.db import AnalyticsDB
+    from main import app, lifespan
+    from config import settings
+
+    db_path = tmp_path / "a.db"
+    seed = AnalyticsDB(str(db_path))  # pre-existing schema, e.g. restored from backup
+    await seed.initialize()
+    await seed.close()
+    db_path.chmod(0o444)  # parent stays writable — only the file is read-only
+
+    monkeypatch.setattr(settings, "app_api_key", "k")
+    monkeypatch.setattr(settings, "analytics_db_path", str(db_path))
+    try:
+        with pytest.raises(RuntimeError, match="ANALYTICS_DB_PATH"):
+            async with lifespan(app):
+                pass
+    finally:
+        db_path.chmod(0o644)  # restore so tmp_path cleanup succeeds
+
+
+@pytest.mark.asyncio
 async def test_startup_abort_is_deterministic_and_side_effect_free(monkeypatch, tmp_path):
     from main import app, lifespan
     from config import settings

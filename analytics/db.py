@@ -54,6 +54,17 @@ class AnalyticsDB:
         await self._db.commit()
         logger.info("Analytics DB initialized at %s", self.db_path)
 
+    async def write_probe(self) -> None:
+        """Prove the handle is writable with a real write.
+
+        A read-only DB file (mode 0444, ro-mounted volume) passes connect()
+        and the WAL pragma silently — every later log_request would then fail
+        per-record. Startup calls this to fail fast instead.
+        """
+        await self._db.execute("CREATE TABLE IF NOT EXISTS _write_probe(x)")
+        await self._db.execute("DROP TABLE _write_probe")
+        await self._db.commit()
+
     async def close(self) -> None:
         if self._db:
             await self._db.close()
