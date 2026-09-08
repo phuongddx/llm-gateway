@@ -1,4 +1,4 @@
-"""Unit tests for analytics.writer — bounded queue, drop-newest, drain/stop."""
+"""Unit tests for analytics.writer — queue lifecycle + concurrent burst proof."""
 
 import asyncio
 import json
@@ -216,3 +216,101 @@ async def test_single_record_exactly_once(analytics_db):
     assert recent["total"] == 1
     assert recent["requests"][0]["id"] == _record(0)["id"]
     await writer.stop()
+
+
+# --- Concurrent burst + client-disconnect suite (RELI-02a + edge) ---
+
+
+def _stream_tokens(text: str) -> list[str]:
+    """Token payloads from an SSE body, in stream order."""
+    return [
+        json.loads(line[len("data: "):])["token"]
+        for line in text.splitlines()
+        if line.startswith("data: ") and line[len("data: "):] != "[DONE]"
+    ]
+
+
+@pytest.mark.asyncio
+async def test_concurrent_burst_full_delivery_exactly_once(
+    client, auth_headers, analytics_writer, analytics_db
+):
+    """20 concurrent streams over one ASGI client, slowed writer: full tokens, exactly-once rows."""
+
+    def _provider_for(i: int):
+        class BurstProvider:
+            async def chat_stream(self, messages, system_prompt, params=None):
+                yield (f"tok{i}", None)
+                yield ("", {"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2})
+
+        return BurstProvider()
+
+    original_log = analytics_db.log_request
+
+    async def slowed_log(record):
+        await asyncio.sleep(0.005)  # deterministic lag — never a blocking sleep
+        await original_log(record)
+
+    analytics_db.log_request = slowed_log  # the fixture writer's db — slows its drain
+
+    samples: list[int] = []
+
+    async def sampler():
+        for _ in range(50):
+            samples.append(analytics_writer.qsize())
+            await asyncio.sleep(0.001)
+
+    sampler_task = asyncio.create_task(sampler())
+    with patch("routes.chat.create_provider", side_effect=[_provider_for(i) for i in range(20)]), \
+         patch("routes.chat.resolve_provider", return_value=("manifest", "gpt-4o")):
+        responses = await asyncio.gather(*[
+            client.post(
+                "/v1/chat/completions",
+                json={"model": "gpt-4o", "messages": [{"role": "user", "content": "burst"}]},
+                headers=auth_headers,
+            )
+            for _ in range(20)
+        ])
+    await sampler_task
+    await analytics_writer.wait_drained(5.0)
+
+    assert all(r.status_code == 200 for r in responses)
+    tokens_per_response = [_stream_tokens(r.text) for r in responses]
+    for r, tokens in zip(responses, tokens_per_response):
+        assert r.text.endswith("data: [DONE]\n\n")
+        assert len(tokens) == 1  # its provider's own token, and nothing else
+    all_tokens = [token for tokens in tokens_per_response for token in tokens]
+    assert sorted(all_tokens) == sorted(f"tok{i}" for i in range(20))  # every stream delivered
+
+    cap = analytics_writer._queue.maxsize  # the locked bounded assertion reads the writer's own cap
+    assert max(samples) <= cap
+
+    recent = await analytics_db.get_recent(limit=100)
+    assert recent["total"] == 20  # exactly once
+    assert len({row["id"] for row in recent["requests"]}) == 20
+
+
+@pytest.mark.asyncio
+async def test_client_disconnect_midstream_still_enqueues_exactly_once(
+    analytics_writer, analytics_db
+):
+    """Direct generator aclose (GeneratorExit) still enqueues exactly one record."""
+    from routes.chat import ChatRequest, _tracked_stream
+
+    class MultiTokenProvider:
+        async def chat_stream(self, messages, system_prompt, params=None):
+            for i in range(5):
+                yield (f"chunk{i}", None)
+            yield ("", {"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2})
+
+    request = ChatRequest(model="gpt-4o", messages=[{"role": "user", "content": "hi"}])
+    gen = _tracked_stream(
+        MultiTokenProvider(), request, "manifest", "gpt-4o", analytics_writer, None
+    )
+    first_frame = await gen.__anext__()
+    assert first_frame.startswith("data: ")
+    await gen.aclose()  # client disconnect → GeneratorExit → finally-block enqueues once
+
+    await analytics_writer.wait_drained(5.0)
+    recent = await analytics_db.get_recent(limit=10)
+    assert recent["total"] == 1
+    assert len({row["id"] for row in recent["requests"]}) == 1
