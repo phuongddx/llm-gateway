@@ -367,7 +367,14 @@ async def test_interleave_queue_drained_between_purge_batches(analytics_db):
     for i in range(2500, 2530):  # 30 fresh records, synchronously — no await
         writer.enqueue(_record(i))
 
-    await asyncio.sleep(0.3)  # bounded: the startup purge completes its batches
+    # Bounded wait for the startup purge to finish all batches (convention:
+    # poll last_purged, never a bare sleep — a loaded runner could otherwise
+    # assert mid-purge partial state).
+    deadline = time.monotonic() + 5.0
+    while writer.last_purged != 2500:
+        if time.monotonic() >= deadline:
+            pytest.fail("startup purge did not complete within 5s")
+        await asyncio.sleep(0.01)
 
     assert writer.dropped == 0
     recent = await analytics_db.get_recent(limit=100)
