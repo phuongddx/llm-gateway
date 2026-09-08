@@ -202,7 +202,8 @@ Single test file/function:
 - **Package manager**: plain `pip` + `venv` (`make install`), **no lockfile**
   (no `poetry.lock`/`uv.lock`/`requirements-lock.txt`). All deps in
   `requirements.txt` are `>=`-pinned only (fastapi, uvicorn, pydantic-settings,
-  openai, python-dotenv, aiosqlite, pytest, pytest-asyncio, httpx, slowapi).
+  openai, python-dotenv, aiosqlite, pytest, pytest-asyncio, httpx, slowapi,
+  limits).
 - **No linter/formatter configured** — no ruff/black/flake8 config found and
   no `lint` Makefile target exists.
 - **Server**: `uvicorn main:app`, port 8000 hardcoded in `Makefile` targets.
