@@ -137,6 +137,34 @@ async def test_zai_coding_quota_error_frame(client, auth_headers):
 
 
 @pytest.mark.asyncio
+async def test_error_stream_logs_error_row(
+    client, auth_headers, analytics_writer, analytics_db
+):
+    """Same mid-stream quota failure as the frame test above, plus what it logs:
+    exactly one request_logs row with status=error (frame shape is pinned by the
+    twin test_zai_coding_quota_error_frame)."""
+    class QuotaMidStreamProvider:
+        async def chat_stream(self, messages, system_prompt, params=None):
+            yield ("tok", None)
+            raise ZaiQuotaError("429 too many requests")
+
+    with patch("routes.chat.create_provider", return_value=QuotaMidStreamProvider()), \
+         patch("routes.chat.resolve_provider", return_value=("zai-coding", "glm-5.3")):
+        response = await client.post(
+            "/v1/chat/completions", json=_zai_stream_request(), headers=auth_headers
+        )
+
+    assert response.status_code == 200
+    assert any("token" in f for f in _sse_frames(response.text))  # tokens precede the error frame
+    assert response.text.endswith("data: [DONE]\n\n")
+
+    await analytics_writer.wait_drained(5.0)
+    recent = await analytics_db.get_recent(limit=10)
+    assert recent["total"] == 1
+    assert recent["requests"][0]["status"] == "error"
+
+
+@pytest.mark.asyncio
 async def test_zai_coding_auth_error_frame(client, auth_headers):
     class AuthFailProvider:
         async def chat_stream(self, messages, system_prompt, params=None):
