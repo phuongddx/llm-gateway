@@ -82,5 +82,25 @@ def test_routing_table_has_expected_models():
     assert "MiniMax-Text-01" in MODEL_ROUTING
 
 
-def test_resolve_auto(without_zai_key):
+def test_resolve_auto_unaffected_by_zai_key_state(without_zai_key):
+    """ROUT-01: `auto` stays pinned to Manifest regardless of z.ai key state.
+
+    Manifest's 2026-09-01 deprecation removed the prompt-complexity classifier
+    specifically, not the `auto` keyword itself — `auto` now routes to the
+    Manifest-dashboard-configured Default tier (one model + up to 5 fallbacks)
+    with automatic fallback recovery, verified against current Manifest docs
+    2026-09-08. See PROJECT.md decision ROUT-01 (KEEP model="auto" unchanged).
+    """
+    assert resolve_provider("auto") == ("manifest", "auto")
+
+
+def test_resolve_auto_stays_manifest_even_with_zai_key(with_zai_key):
+    """ROUT-01: the effective-zai-key gate never flips `auto`'s provider.
+
+    resolve_provider()'s key-gate branch only fires for `zai-coding` entries
+    in MODEL_ROUTING; `auto`'s table entry is `("manifest", "auto")`, not a
+    `zai-coding` entry, so that branch is structurally unreachable for `auto`
+    even when an effective z.ai key is configured. See PROJECT.md decision
+    ROUT-01 (KEEP model="auto" unchanged).
+    """
     assert resolve_provider("auto") == ("manifest", "auto")
