@@ -55,8 +55,8 @@ Derived from ingest open items: production-readiness backlog, analytics retentio
 
 ### Analytics Lifecycle (Phase 2)
 
-- [ ] **ANLT-01**: Operator can bound `request_logs` growth via a `.env` retention setting (TTL in days) with a documented default, applied to existing databases without manual SQL
-- [ ] **ANLT-02**: Rows older than the TTL are purged automatically (startup + periodic); `/v1/analytics/{summary,models,requests,credits}` serve retained data correctly; purging never blocks or delays response streaming (fire-and-forget preserved, WAL intact); on-disk growth is bounded and purged space is reclaimable
+- [x] **ANLT-01**: Operator can bound `request_logs` growth via a `.env` retention setting (TTL in days) with a documented default, applied to existing databases without manual SQL
+- [x] **ANLT-02**: Rows older than the TTL are purged automatically (startup + periodic); `/v1/analytics/{summary,models,requests,credits}` serve retained data correctly; purging never blocks or delays response streaming (fire-and-forget preserved, WAL intact); on-disk growth is bounded and purged space is reclaimable
 
 ### Deployment (Phase 3)
 
@@ -120,8 +120,8 @@ v1 (active) requirements → phases. Baseline and Historical sections are intent
 | RELI-01 | Phase 1 | Complete |
 | RELI-02 | Phase 1 | Complete |
 | RELI-03 | Phase 1 | Complete |
-| ANLT-01 | Phase 2 | Pending |
-| ANLT-02 | Phase 2 | Pending |
+| ANLT-01 | Phase 2 | Complete |
+| ANLT-02 | Phase 2 | Complete |
 | DEPL-01 | Phase 3 | Pending |
 | DEPL-02 | Phase 3 | Pending |
 | DEPL-03 | Phase 3 | Pending |
