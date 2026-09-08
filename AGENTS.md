@@ -220,9 +220,9 @@ Single test file/function:
   No coverage tooling configured anywhere. Every async test still carries an
   explicit `@pytest.mark.asyncio` even though `asyncio_mode = auto` makes it
   redundant — keep that decorator on new async tests for consistency.
+
 - **Fixtures** (`tests/conftest.py`, all function-scoped):
   `auth_headers()` (returns `{"Authorization": "Bearer changeme"}`),
-  `mock_provider()` (returns a `MockProvider(LLMProvider)` helper),
   `analytics_db(tmp_path)` (in-memory `AnalyticsDB(":memory:")`, init/close),
   `analytics_writer(analytics_db)` (constructs + starts a real
   `AnalyticsWriter` over the in-memory DB, injects
