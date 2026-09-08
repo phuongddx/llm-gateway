@@ -197,7 +197,6 @@ function escapeHtml(str) {
 }
 
 let renderTimer = null;
-let pendingToken = null;
 let currentAssistantDiv = null;
 
 function appendToken(token) {
@@ -208,14 +207,11 @@ function appendToken(token) {
   lastMsg.content += token;
 
   if (renderTimer) {
-    pendingToken = token;
     return;
   }
   renderTimer = setTimeout(() => {
     const el = currentAssistantDiv?.querySelector('.content');
-    if (el && lastMsg.content) el.innerHTML = renderMarkdown(lastMsg.content);
     renderTimer = null;
-    pendingToken = null;
     scrollToBottom();
   }, 50);
 }
