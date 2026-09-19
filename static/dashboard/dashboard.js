@@ -6,6 +6,7 @@ const state = { key: null, since: null, timer: null, lastRequests: [], feedSeenI
 const renderers = []; // async fns, called by refreshAll()
 
 const $ = (sel) => document.querySelector(sel);
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const dom = {
   keyInput: $('#api-key-input'), saveKey: $('#key-save-btn'), clearKey: $('#key-clear-btn'),
   timeFilter: $('#time-filter'), refreshToggle: $('#refresh-toggle'), refreshNow: $('#refresh-now-btn'),
@@ -182,7 +183,7 @@ function renderModels(models) {
 
   $('#model-table-body').innerHTML = models.map((model, index) => `
     <tr class="clickable" data-i="${index}">
-      <td>${model.model}</td><td>${model.provider}</td><td>${model.request_count}</td>
+      <td>${esc(model.model)}</td><td>${esc(model.provider)}</td><td>${model.request_count}</td>
       <td>${model.total_tokens.toLocaleString()}</td><td>${model.cost_usd.toFixed(4)}</td>
       <td>${Math.round(model.avg_latency_ms)} ms</td><td>${Math.round(model.avg_ttft_ms)} ms</td>
     </tr>`).join('');
@@ -194,11 +195,11 @@ function renderDrilldown(model) {
   $('#drilldown-body').innerHTML = requests.map((request) => `
     <tr>
       <td>${new Date(request.created_at).toLocaleString()}</td>
-      <td class="${request.status === 'error' ? 'err' : 'ok'}">${request.status}</td>
+      <td class="${request.status === 'error' ? 'err' : 'ok'}">${esc(request.status)}</td>
       <td>${request.total_tokens.toLocaleString()}</td>
       <td>${Math.round(request.latency_ms)} ms</td>
       <td>${Math.round(request.ttft_ms)} ms</td>
-      <td class="err">${request.error_message || ''}</td>
+      <td class="err">${esc(request.error_message)}</td>
     </tr>`).join('');
   $('#drilldown').classList.remove('hidden');
 }
@@ -222,10 +223,10 @@ renderers.push(async () => {
   $('#feed-body').innerHTML = state.lastRequests.slice(0, 50).map((request) => `
     <tr class="${!first && !seen.has(request.id) ? 'new-row' : ''}">
       <td>${new Date(request.created_at).toLocaleTimeString()}</td>
-      <td>${request.model}</td><td>${request.provider}</td>
+      <td>${esc(request.model)}</td><td>${esc(request.provider)}</td>
       <td>${request.total_tokens.toLocaleString()}</td>
       <td>${Math.round(request.latency_ms)} ms</td>
-      <td class="${request.status === 'error' ? 'err' : 'ok'}">${request.status}</td>
+      <td class="${request.status === 'error' ? 'err' : 'ok'}">${esc(request.status)}</td>
     </tr>`).join('');
   state.feedSeenIds = new Set(state.lastRequests.slice(0, 50).map((request) => request.id));
 });
