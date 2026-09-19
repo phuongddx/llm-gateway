@@ -11,6 +11,7 @@ A FastAPI-based API gateway that routes chat completion requests through Manifes
 - **Server-Sent Events streaming** -- real-time token delivery with usage metadata
 - **Analytics pipeline** -- SQLite-backed request logging with TTFT, latency tracking
 - **Analytics API** -- summary stats, per-model breakdowns, recent requests, GLM credit burn
+- **Dashboard UI** -- full ops console at `/dashboard`: overview cards, GLM credit gauges, latency/TTFT charts, per-model drilldown, live request feed (Chart.js via CDN)
 - **Bearer token authentication** -- simple API key gating
 
 ## Quick Start
@@ -212,6 +213,16 @@ docker compose --profile observability up
 ```
 
 Prometheus is then reachable at `http://localhost:9090`.
+
+### Dashboard
+
+Full ops console served at `/dashboard` (same Bearer key as the API, stored in localStorage).
+
+- Overview cards: requests, tokens, cost, error rate, avg latency, avg TTFT
+- GLM credit gauges: 5h + 7d rolling windows vs quota
+- Charts: latency/TTFT over time, tokens by model (Chart.js 4 via CDN)
+- Per-model table with click-through drilldown
+- Live request feed with 15s auto-refresh toggle
 
 ## Configuration
 

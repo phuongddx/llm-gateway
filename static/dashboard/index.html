@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LLM Gateway — Dashboard</title>
+  <link rel="stylesheet" href="/static/dashboard/dashboard.css" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" integrity="sha384-9nhczxUqK87bcKHh20fSQcTGD4qq5GhayNYSYWqwBkINBhOfQLg/P5HG5lF1urn4" crossorigin="anonymous"></script>
+</head>
+<body>
+  <header class="topbar">
+    <h1>LLM Gateway <span class="muted">dashboard</span></h1>
+    <div class="controls">
+      <input type="password" id="api-key-input" placeholder="API Key" autocomplete="off" />
+      <button id="key-save-btn" class="btn">Save</button>
+      <button id="key-clear-btn" class="btn ghost">Clear</button>
+      <select id="time-filter">
+        <option value="24h">24h</option>
+        <option value="7d">7d</option>
+        <option value="30d">30d</option>
+      </select>
+      <label class="toggle"><input type="checkbox" id="refresh-toggle" /> auto 15s</label>
+      <button id="refresh-now-btn" class="btn">Refresh</button>
+    </div>
+  </header>
+  <div id="error-banner" class="banner hidden"></div>
+
+  <main>
+    <section id="cards" class="cards"></section>
+
+    <section class="row">
+      <div class="panel"><h2>GLM credits — 5h</h2><div id="gauge-5h" class="gauge"></div></div>
+      <div class="panel"><h2>GLM credits — 7d rolling</h2><div id="gauge-7d" class="gauge"></div></div>
+    </section>
+
+    <section class="panel">
+      <h2>Latency / TTFT</h2>
+      <div id="chart-latency" class="chart"></div>
+    </section>
+
+    <section class="panel">
+      <h2>Tokens by model</h2>
+      <div id="chart-models" class="chart"></div>
+    </section>
+
+    <section class="panel">
+      <h2>Models</h2>
+      <table class="table">
+        <thead><tr><th>Model</th><th>Provider</th><th>Reqs</th><th>Tokens</th><th>Cost $</th><th>Latency</th><th>TTFT</th></tr></thead>
+        <tbody id="model-table-body"></tbody>
+      </table>
+    </section>
+
+    <section id="drilldown" class="panel hidden">
+      <h2 id="drilldown-title"></h2>
+      <button id="drilldown-close" class="btn ghost">Close</button>
+      <table class="table">
+        <thead><tr><th>Time</th><th>Status</th><th>Tokens</th><th>Latency</th><th>TTFT</th><th>Error</th></tr></thead>
+        <tbody id="drilldown-body"></tbody>
+      </table>
+    </section>
+
+    <section class="panel">
+      <h2>Live feed</h2>
+      <table class="table">
+        <thead><tr><th>Time</th><th>Model</th><th>Provider</th><th>Tokens</th><th>Latency</th><th>Status</th></tr></thead>
+        <tbody id="feed-body"></tbody>
+      </table>
+    </section>
+  </main>
+
+  <script src="/static/dashboard/dashboard.js"></script>
+</body>
+</html>

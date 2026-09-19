@@ -134,4 +134,9 @@ async def playground():
     return FileResponse("static/playground/index.html")
 
 
+@app.get("/dashboard")
+async def dashboard():
+    return FileResponse("static/dashboard/index.html")
+
+
 app.mount("/static", StaticFiles(directory="static"), name="static")
