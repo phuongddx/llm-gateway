@@ -4,3 +4,6 @@ Task 2: complete (commit a53b70b, review clean — spec ✅, no issues)
 Task 3: complete (commit 0785838, review clean — byte-identical, contracts verified)
 Task 4: fix round 1/5 (stale gauge center-text + zero-quota overage; commits 156a3ba+f14b559, re-review clean)
 Task 4: complete (review approved after fix)
+Ruling: Tasks 5+6 dispatched together — renderer ordering coupled, same file tail — avoids meaningless intermediate state; cost if wrong: larger review diff
+Task 5+6: fix round 1/5 (stale feed + flash-all rows; destroy-before-replace; commits 59ecc12+8bad6fd)
+Task 5+6: complete (re-review clean)
