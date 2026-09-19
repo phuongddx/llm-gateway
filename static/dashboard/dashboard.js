@@ -2,7 +2,7 @@
 
 const REFRESH_MS = 15000;
 const KEY_STORAGE = 'llm_dashboard_key';
-const state = { key: null, since: null, timer: null, lastRequests: [] };
+const state = { key: null, since: null, timer: null, lastRequests: [], feedSeenIds: null };
 const renderers = []; // async fns, called by refreshAll()
 
 const $ = (sel) => document.querySelector(sel);
@@ -143,9 +143,9 @@ function bucketRequests(reqs) {
 
 function renderLatencyChart(reqs) {
   const { keys, latency, ttft } = bucketRequests(reqs);
+  latencyChart?.destroy();
   const canvas = document.createElement('canvas');
   $('#chart-latency').replaceChildren(canvas);
-  latencyChart?.destroy();
   latencyChart = new Chart(canvas, {
     type: 'line',
     data: {
@@ -164,9 +164,9 @@ let modelsChart = null;
 
 function renderModels(models) {
   const top = models.slice(0, 10);
+  modelsChart?.destroy();
   const canvas = document.createElement('canvas');
   $('#chart-models').replaceChildren(canvas);
-  modelsChart?.destroy();
   modelsChart = new Chart(canvas, {
     type: 'bar',
     data: {
@@ -203,21 +203,6 @@ function renderDrilldown(model) {
   $('#drilldown').classList.remove('hidden');
 }
 
-// --- live feed (new rows flash) ---
-// This renderer is intentionally registered before the analytics fetch below so
-// it can capture the request IDs currently shown before that fetch replaces them.
-renderers.push(async () => {
-  const previousIds = new Set(state.lastRequests.map((request) => request.id));
-  $('#feed-body').innerHTML = state.lastRequests.slice(0, 50).map((request) => `
-    <tr class="${previousIds.has(request.id) ? 'new-row' : ''}">
-      <td>${new Date(request.created_at).toLocaleTimeString()}</td>
-      <td>${request.model}</td><td>${request.provider}</td>
-      <td>${request.total_tokens.toLocaleString()}</td>
-      <td>${Math.round(request.latency_ms)} ms</td>
-      <td class="${request.status === 'error' ? 'err' : 'ok'}">${request.status}</td>
-    </tr>`).join('');
-});
-
 renderers.push(async () => {
   const query = state.since ? `?since=${encodeURIComponent(state.since)}` : '';
   const [modelsResponse, requestsResponse] = await Promise.all([
@@ -228,6 +213,21 @@ renderers.push(async () => {
   state.lastModels = modelsResponse.models;
   renderLatencyChart(state.lastRequests);
   renderModels(state.lastModels);
+});
+
+// --- live feed (new rows flash) ---
+renderers.push(async () => {
+  const first = state.feedSeenIds === null;
+  const seen = state.feedSeenIds || new Set();
+  $('#feed-body').innerHTML = state.lastRequests.slice(0, 50).map((request) => `
+    <tr class="${!first && !seen.has(request.id) ? 'new-row' : ''}">
+      <td>${new Date(request.created_at).toLocaleTimeString()}</td>
+      <td>${request.model}</td><td>${request.provider}</td>
+      <td>${request.total_tokens.toLocaleString()}</td>
+      <td>${Math.round(request.latency_ms)} ms</td>
+      <td class="${request.status === 'error' ? 'err' : 'ok'}">${request.status}</td>
+    </tr>`).join('');
+  state.feedSeenIds = new Set(state.lastRequests.slice(0, 50).map((request) => request.id));
 });
 
 document.addEventListener('DOMContentLoaded', () => {
