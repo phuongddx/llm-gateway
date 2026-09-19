@@ -7,3 +7,5 @@ Task 4: complete (review approved after fix)
 Ruling: Tasks 5+6 dispatched together — renderer ordering coupled, same file tail — avoids meaningless intermediate state; cost if wrong: larger review diff
 Task 5+6: fix round 1/5 (stale feed + flash-all rows; destroy-before-replace; commits 59ecc12+8bad6fd)
 Task 5+6: complete (re-review clean)
+Ruling: Task 7 docs-only 11-line diff reviewed by controller (no reviewer dispatch) — trivial placement deviation accepted; cost if wrong: move a heading
+Task 7: complete (commit 1652b8c, controller-reviewed)
