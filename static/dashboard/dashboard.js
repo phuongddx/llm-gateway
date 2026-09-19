@@ -68,3 +68,49 @@ document.addEventListener('DOMContentLoaded', () => {
   state.since = sinceForFilter(dom.timeFilter.value);
   refreshAll();
 });
+
+// --- summary cards ---
+const CARD_DEFS = [
+  ['Requests', (s) => s.total_requests],
+  ['Tokens', (s) => s.total_tokens?.toLocaleString()],
+  ['Cost $', (s) => s.total_cost_usd?.toFixed(4)],
+  ['Error rate', (s) => (s.error_rate * 100).toFixed(1) + '%'],
+  ['Avg latency', (s) => Math.round(s.avg_latency_ms) + ' ms'],
+  ['Avg TTFT', (s) => Math.round(s.avg_ttft_ms) + ' ms'],
+];
+
+renderers.push(async () => {
+  const s = await api(`/v1/analytics/summary${state.since ? `?since=${encodeURIComponent(state.since)}` : ''}`);
+  $('#cards').innerHTML = CARD_DEFS.map(([label, val]) =>
+    `<div class="card"><div class="card-label">${label}</div><div class="card-value">${val(s)}</div></div>`).join('');
+});
+
+// --- credit gauges (Chart.js doughnut) ---
+const gauges = {};
+
+function renderGauge(elId, used, quota) {
+  const remain = Math.max(quota - used, 0);
+  const data = [used, remain];
+  if (gauges[elId]) { gauges[elId].data.datasets[0].data = data; gauges[elId].update(); return; }
+  const canvas = document.createElement('canvas');
+  document.getElementById(elId).replaceChildren(canvas);
+  gauges[elId] = new Chart(canvas, {
+    type: 'doughnut',
+    data: { labels: ['used', 'remaining'], datasets: [{ data, backgroundColor: ['#ff6b6b', '#2a2f3d'], borderWidth: 0 }] },
+    options: { cutout: '72%', plugins: { legend: { display: false }, tooltip: { enabled: false } } },
+    plugins: [{ id: 'centerText', afterDraw(c) {
+      const { ctx, chartArea } = c; const x = (chartArea.left + chartArea.right) / 2, y = (chartArea.top + chartArea.bottom) / 2;
+      const pct = quota ? Math.round((used / quota) * 100) : 0;
+      ctx.save(); ctx.textAlign = 'center'; ctx.fillStyle = pct >= 90 ? '#ff6b6b' : '#e6e8ef';
+      ctx.font = 'bold 22px sans-serif'; ctx.fillText(pct + '%', x, y);
+      ctx.font = '11px sans-serif'; ctx.fillStyle = '#8b90a0';
+      ctx.fillText(`${Math.round(used)} / ${quota}`, x, y + 18); ctx.restore();
+    } }],
+  });
+}
+
+renderers.push(async () => {
+  const c = await api('/v1/analytics/credits');
+  renderGauge('gauge-5h', c.window_5h.credits_used, c.window_5h.quota);
+  renderGauge('gauge-7d', c.window_7d_rolling.credits_used, c.window_7d_rolling.quota);
+});
