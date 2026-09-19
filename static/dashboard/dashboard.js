@@ -91,7 +91,7 @@ const gauges = {};
 function renderGauge(elId, used, quota) {
   const remain = Math.max(quota - used, 0);
   const data = [used, remain];
-  if (gauges[elId]) { gauges[elId].data.datasets[0].data = data; gauges[elId].update(); return; }
+  if (gauges[elId]) { gauges[elId].$gauge = { used, quota }; gauges[elId].data.datasets[0].data = data; gauges[elId].update(); return; }
   const canvas = document.createElement('canvas');
   document.getElementById(elId).replaceChildren(canvas);
   gauges[elId] = new Chart(canvas, {
@@ -99,14 +99,16 @@ function renderGauge(elId, used, quota) {
     data: { labels: ['used', 'remaining'], datasets: [{ data, backgroundColor: ['#ff6b6b', '#2a2f3d'], borderWidth: 0 }] },
     options: { cutout: '72%', plugins: { legend: { display: false }, tooltip: { enabled: false } } },
     plugins: [{ id: 'centerText', afterDraw(c) {
+      const gauge = c.$gauge || { used, quota };
       const { ctx, chartArea } = c; const x = (chartArea.left + chartArea.right) / 2, y = (chartArea.top + chartArea.bottom) / 2;
-      const pct = quota ? Math.round((used / quota) * 100) : 0;
+      const pct = gauge.quota ? Math.round((gauge.used / gauge.quota) * 100) : (gauge.used > 0 ? 100 : 0);
       ctx.save(); ctx.textAlign = 'center'; ctx.fillStyle = pct >= 90 ? '#ff6b6b' : '#e6e8ef';
       ctx.font = 'bold 22px sans-serif'; ctx.fillText(pct + '%', x, y);
       ctx.font = '11px sans-serif'; ctx.fillStyle = '#8b90a0';
-      ctx.fillText(`${Math.round(used)} / ${quota}`, x, y + 18); ctx.restore();
+      ctx.fillText(`${Math.round(gauge.used)} / ${gauge.quota}`, x, y + 18); ctx.restore();
     } }],
   });
+  gauges[elId].$gauge = { used, quota };
 }
 
 renderers.push(async () => {
