@@ -9,3 +9,6 @@ Task 5+6: fix round 1/5 (stale feed + flash-all rows; destroy-before-replace; co
 Task 5+6: complete (re-review clean)
 Ruling: Task 7 docs-only 11-line diff reviewed by controller (no reviewer dispatch) — trivial placement deviation accepted; cost if wrong: move a heading
 Task 7: complete (commit 1652b8c, controller-reviewed)
+Final review: findings (XSS critical, SRI minor, stale 146 count)
+Final fix: commit b2e9b18 (esc helper + SRI); re-review CLEAN
+Ruling: 146-test expectation was controller arithmetic error (base 142 + 2 dashboard = 144) — stale, not missing tests
