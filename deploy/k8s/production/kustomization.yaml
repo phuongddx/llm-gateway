@@ -1,0 +1,13 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: llm-gateway
+resources:
+  - namespace.yaml
+  - configmap.yaml
+  - middleware-redirect.yaml
+  - ingress-http.yaml
+  - ingress-https.yaml
+  - ../base
+images:
+  - name: ghcr.io/phuongddx/llm-gateway
+    newTag: immutable

@@ -1,0 +1,4 @@
+creation_rules:
+  - path_regex: ^deploy/secrets/sops/.*\.enc\.yaml$
+    encrypted_regex: ^(data|stringData)$
+    age: age1ww7lffn57hz5h2x7qrjaud70fvnzjp4wnrtze2tde9uj4u0e34yq7y748d
