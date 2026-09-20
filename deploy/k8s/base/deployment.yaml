@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: llm-gateway
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: llm-gateway
+  template:
+    metadata:
+      labels:
+        app: llm-gateway
+    spec:
+      imagePullSecrets:
+        - name: ghcr-pull
+      containers:
+        - name: llm-gateway
+          image: ghcr.io/phuongddx/llm-gateway
+          ports:
+            - name: http
+              containerPort: 8000
+          envFrom:
+            - configMapRef:
+                name: app-config
+            - secretRef:
+                name: app-secrets
+          volumeMounts:
+            - name: data
+              mountPath: /app/data
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: gateway-data
