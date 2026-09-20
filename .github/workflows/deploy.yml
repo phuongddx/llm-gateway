@@ -1,0 +1,162 @@
+name: Deploy to vps192 production
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: vps192-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: vps192-production
+    permissions:
+      contents: read
+      packages: write
+    env:
+      VPS_HOST: ${{ secrets.VPS_HOST }}
+      VPS_USER: ${{ secrets.VPS_USER }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install ruff==0.16.6
+          pip install --requirement requirements.txt
+
+      - name: Lint
+        run: python -m ruff check .
+
+      - name: Test
+        run: python -m pytest tests/ -q
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push immutable image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64
+          push: true
+          provenance: false
+          sbom: false
+          tags: ghcr.io/phuongddx/llm-gateway:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Install deployment tools
+        run: |
+          curl --fail --silent --show-error --location \
+            https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2Fv5.7.1/kustomize_v5.7.1_linux_amd64.tar.gz |
+            sudo tar -xz -C /usr/local/bin kustomize
+          curl --fail --silent --show-error --location \
+            --output /tmp/sops \
+            https://github.com/getsops/sops/releases/download/v3.10.2/sops-v3.10.2.linux.amd64
+          sudo install -m 0755 /tmp/sops /usr/local/bin/sops
+          rm -f /tmp/sops
+
+      - name: Validate SOPS Secrets
+        env:
+          SOPS_AGE_KEY: ${{ secrets.SOPS_AGE_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          expected=3
+          actual=$(find deploy/secrets/sops -maxdepth 1 -type f -name '*.enc.yaml' | wc -l)
+          test "$actual" -eq "$expected"
+          for file in deploy/secrets/sops/*.enc.yaml; do
+            grep -q '^sops:' "$file"
+            sops --decrypt "$file" >/dev/null
+          done
+
+      - name: Render non-secret manifests
+        run: |
+          set -euo pipefail
+          cd deploy/k8s/production
+          kustomize edit set image \
+            ghcr.io/phuongddx/llm-gateway=ghcr.io/phuongddx/llm-gateway:${GITHUB_SHA}
+          kustomize build . > "${RUNNER_TEMP}/rendered.yaml"
+          grep -F "image: ghcr.io/phuongddx/llm-gateway:${GITHUB_SHA}" \
+            "${RUNNER_TEMP}/rendered.yaml"
+          if grep -F 'kind: Secret' "${RUNNER_TEMP}/rendered.yaml"; then
+            printf 'unexpected_secret_in_rendered_manifests\n' >&2
+            exit 1
+          fi
+
+      - name: Configure SSH agent
+        env:
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          eval "$(ssh-agent -s)"
+          printf '%s\n' "$VPS_SSH_KEY" | ssh-add -
+          mkdir -p "${HOME}/.ssh"
+          chmod 0700 "${HOME}/.ssh"
+          ssh-keyscan -H "$VPS_HOST" >> "${HOME}/.ssh/known_hosts"
+          printf '%s\n' "$SSH_AUTH_SOCK" > "${RUNNER_TEMP}/ssh-auth-sock"
+          printf '%s\n' "$SSH_AGENT_PID" > "${RUNNER_TEMP}/ssh-agent-pid"
+
+      - name: Apply encrypted Secrets
+        env:
+          SOPS_AGE_KEY: ${{ secrets.SOPS_AGE_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          export SSH_AUTH_SOCK="$(cat "${RUNNER_TEMP}/ssh-auth-sock")"
+          export SSH_AGENT_PID="$(cat "${RUNNER_TEMP}/ssh-agent-pid")"
+          ssh -o BatchMode=yes "${VPS_USER}@${VPS_HOST}" \
+            'if ! k3s kubectl get namespace llm-gateway >/dev/null 2>&1; then k3s kubectl create namespace llm-gateway; fi'
+          for file in deploy/secrets/sops/*.enc.yaml; do
+            sops --decrypt "$file" |
+              ssh -o BatchMode=yes "${VPS_USER}@${VPS_HOST}" \
+                'k3s kubectl apply -f -'
+          done
+
+      - name: Apply workload manifests
+        run: |
+          set -euo pipefail
+          export SSH_AUTH_SOCK="$(cat "${RUNNER_TEMP}/ssh-auth-sock")"
+          export SSH_AGENT_PID="$(cat "${RUNNER_TEMP}/ssh-agent-pid")"
+          ssh -o BatchMode=yes "${VPS_USER}@${VPS_HOST}" \
+            'k3s kubectl apply -f -' < "${RUNNER_TEMP}/rendered.yaml"
+
+      - name: Wait for rollout
+        run: |
+          set -euo pipefail
+          export SSH_AUTH_SOCK="$(cat "${RUNNER_TEMP}/ssh-auth-sock")"
+          export SSH_AGENT_PID="$(cat "${RUNNER_TEMP}/ssh-agent-pid")"
+          ssh -o BatchMode=yes "${VPS_USER}@${VPS_HOST}" \
+            'k3s kubectl -n llm-gateway rollout status deployment/llm-gateway --timeout=300s'
+
+      - name: Smoke test through Cloudflare
+        run: |
+          set -euo pipefail
+          redirect_code=$(curl --silent --show-error --output /dev/null \
+            --write-out '%{http_code}' http://llm-gateway.dropitx.site/)
+          redirect_url=$(curl --silent --show-error --output /dev/null \
+            --write-out '%{redirect_url}' http://llm-gateway.dropitx.site/)
+          case "$redirect_code" in
+            301|302|307|308) ;;
+            *) printf 'unexpected_http_redirect_code=%s\n' "$redirect_code" >&2; exit 1 ;;
+          esac
+          case "$redirect_url" in
+            https://llm-gateway.dropitx.site/*) ;;
+            *) printf 'unexpected_http_redirect_target=%s\n' "$redirect_url" >&2; exit 1 ;;
+          esac
+          curl --fail --silent --show-error \
+            https://llm-gateway.dropitx.site/health/live >/dev/null
+          curl --fail --silent --show-error \
+            https://llm-gateway.dropitx.site/health/ready >/dev/null
