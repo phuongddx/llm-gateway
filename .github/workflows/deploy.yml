@@ -6,19 +6,16 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: vps192-production
+  group: build-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    environment: vps192-production
+    environment: vps192-promotion
     permissions:
       contents: read
       packages: write
-    env:
-      VPS_HOST: ${{ secrets.VPS_HOST }}
-      VPS_USER: ${{ secrets.VPS_USER }}
     steps:
       - uses: actions/checkout@v4
 
@@ -59,104 +56,31 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Install deployment tools
-        run: |
-          curl --fail --silent --show-error --location \
-            https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2Fv5.7.1/kustomize_v5.7.1_linux_amd64.tar.gz |
-            sudo tar -xz -C /usr/local/bin kustomize
-          curl --fail --silent --show-error --location \
-            --output /tmp/sops \
-            https://github.com/getsops/sops/releases/download/v3.10.2/sops-v3.10.2.linux.amd64
-          sudo install -m 0755 /tmp/sops /usr/local/bin/sops
-          rm -f /tmp/sops
-
-      - name: Validate SOPS Secrets
+      - name: Open vps192 config promotion PR
         env:
-          SOPS_AGE_KEY: ${{ secrets.SOPS_AGE_PRIVATE_KEY }}
+          GH_TOKEN: ${{ secrets.VPS192_CONFIG_PROMOTION_TOKEN }}
+          SERVICE: llm-gateway
+          IMAGE_REPO: ghcr.io/phuongddx/llm-gateway
+          SOURCE_SHA: ${{ github.sha }}
         run: |
           set -euo pipefail
-          expected=3
-          actual=$(find deploy/secrets/sops -maxdepth 1 -type f -name '*.enc.yaml' | wc -l)
-          test "$actual" -eq "$expected"
-          for file in deploy/secrets/sops/*.enc.yaml; do
-            grep -q '^sops:' "$file"
-            sops --decrypt "$file" >/dev/null
-          done
-
-      - name: Render non-secret manifests
-        run: |
-          set -euo pipefail
-          cd deploy/k8s/production
-          kustomize edit set image \
-            ghcr.io/phuongddx/llm-gateway=ghcr.io/phuongddx/llm-gateway:${GITHUB_SHA}
-          kustomize build . > "${RUNNER_TEMP}/rendered.yaml"
-          grep -F "image: ghcr.io/phuongddx/llm-gateway:${GITHUB_SHA}" \
-            "${RUNNER_TEMP}/rendered.yaml"
-          if grep -F 'kind: Secret' "${RUNNER_TEMP}/rendered.yaml"; then
-            printf 'unexpected_secret_in_rendered_manifests\n' >&2
-            exit 1
+          config="$RUNNER_TEMP/vps192-k8s-config"
+          gh auth setup-git
+          gh repo clone phuongddx/vps192-k8s-config "$config"
+          git -C "$config" config user.name "github-actions[bot]"
+          git -C "$config" config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          branch="promote/$SERVICE-$SOURCE_SHA"
+          git -C "$config" switch -c "$branch"
+          overlay="apps/$SERVICE/vps192/kustomization.yaml"
+          python3 -c 'import pathlib,re,sys; path=pathlib.Path(sys.argv[1]); text=path.read_text(); pattern=r"(?m)^(\s*- name: "+re.escape(sys.argv[2])+r"\n\s*newTag: ).+$"; updated,count=re.subn(pattern,lambda match:match.group(1)+sys.argv[3],text); assert count == 1, count; path.write_text(updated)' "$config/$overlay" "$IMAGE_REPO" "$SOURCE_SHA"
+          git -C "$config" add "$overlay"
+          git -C "$config" commit -m "promote($SERVICE): $SOURCE_SHA"
+          git -C "$config" push origin "$branch"
+          if [ -z "$(gh pr list --repo phuongddx/vps192-k8s-config --head "$branch" --json url --jq '.[]')" ]; then
+            gh pr create \
+              --repo phuongddx/vps192-k8s-config \
+              --base main \
+              --head "$branch" \
+              --title "promote($SERVICE): $SOURCE_SHA" \
+              --body "Source commit: ${{ github.server_url }}/${{ github.repository }}/commit/$SOURCE_SHA"
           fi
-
-      - name: Configure SSH agent
-        env:
-          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
-        run: |
-          set -euo pipefail
-          eval "$(ssh-agent -s)"
-          printf '%s\n' "$VPS_SSH_KEY" | ssh-add -
-          mkdir -p "${HOME}/.ssh"
-          chmod 0700 "${HOME}/.ssh"
-          ssh-keyscan -H "$VPS_HOST" >> "${HOME}/.ssh/known_hosts"
-          printf '%s\n' "$SSH_AUTH_SOCK" > "${RUNNER_TEMP}/ssh-auth-sock"
-          printf '%s\n' "$SSH_AGENT_PID" > "${RUNNER_TEMP}/ssh-agent-pid"
-
-      - name: Apply encrypted Secrets
-        env:
-          SOPS_AGE_KEY: ${{ secrets.SOPS_AGE_PRIVATE_KEY }}
-        run: |
-          set -euo pipefail
-          export SSH_AUTH_SOCK="$(cat "${RUNNER_TEMP}/ssh-auth-sock")"
-          export SSH_AGENT_PID="$(cat "${RUNNER_TEMP}/ssh-agent-pid")"
-          ssh -o BatchMode=yes "${VPS_USER}@${VPS_HOST}" \
-            'if ! k3s kubectl get namespace llm-gateway >/dev/null 2>&1; then k3s kubectl create namespace llm-gateway; fi'
-          for file in deploy/secrets/sops/*.enc.yaml; do
-            sops --decrypt "$file" |
-              ssh -o BatchMode=yes "${VPS_USER}@${VPS_HOST}" \
-                'k3s kubectl apply -f -'
-          done
-
-      - name: Apply workload manifests
-        run: |
-          set -euo pipefail
-          export SSH_AUTH_SOCK="$(cat "${RUNNER_TEMP}/ssh-auth-sock")"
-          export SSH_AGENT_PID="$(cat "${RUNNER_TEMP}/ssh-agent-pid")"
-          ssh -o BatchMode=yes "${VPS_USER}@${VPS_HOST}" \
-            'k3s kubectl apply -f -' < "${RUNNER_TEMP}/rendered.yaml"
-
-      - name: Wait for rollout
-        run: |
-          set -euo pipefail
-          export SSH_AUTH_SOCK="$(cat "${RUNNER_TEMP}/ssh-auth-sock")"
-          export SSH_AGENT_PID="$(cat "${RUNNER_TEMP}/ssh-agent-pid")"
-          ssh -o BatchMode=yes "${VPS_USER}@${VPS_HOST}" \
-            'k3s kubectl -n llm-gateway rollout status deployment/llm-gateway --timeout=300s'
-
-      - name: Smoke test through Cloudflare
-        run: |
-          set -euo pipefail
-          redirect_code=$(curl --silent --show-error --output /dev/null \
-            --write-out '%{http_code}' http://llm-gateway.dropitx.site/)
-          redirect_url=$(curl --silent --show-error --output /dev/null \
-            --write-out '%{redirect_url}' http://llm-gateway.dropitx.site/)
-          case "$redirect_code" in
-            301|302|307|308) ;;
-            *) printf 'unexpected_http_redirect_code=%s\n' "$redirect_code" >&2; exit 1 ;;
-          esac
-          case "$redirect_url" in
-            https://llm-gateway.dropitx.site/*) ;;
-            *) printf 'unexpected_http_redirect_target=%s\n' "$redirect_url" >&2; exit 1 ;;
-          esac
-          curl --fail --silent --show-error \
-            https://llm-gateway.dropitx.site/health/live >/dev/null
-          curl --fail --silent --show-error \
-            https://llm-gateway.dropitx.site/health/ready >/dev/null
