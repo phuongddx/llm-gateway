@@ -67,55 +67,11 @@ from `.env`, unknown keys ignored):
 | `ANALYTICS_QUEUE_SIZE` | No | `1000` | Bounded analytics write queue size (drop-newest when full) |
 | `ANALYTICS_RETENTION_DAYS` | No | `90` | Analytics log retention in days (`0` = keep forever) |
 
-## Production Deployment
+## vps192 deployment
 
-### Direct Deployment
-
-```bash
-# 1. Install dependencies
-python3 -m venv .venv
-.venv/bin/pip install -r requirements.txt
-
-# 2. Set environment variables (use secrets manager, not .env file in production)
-export APP_API_KEY=$(cat /run/secrets/app_api_key)
-export MANIFEST_API_KEY=$(cat /run/secrets/manifest_key)
-export ZAI_CODING_API_KEY=$(cat /run/secrets/zai_coding_key)
-export ANALYTICS_DB_PATH=/data/analytics.db
-
-# 3. Run with uvicorn
-.venv/bin/uvicorn main:app --host 0.0.0.0 --port 8000 --workers 4
-```
-
-### Recommended Production Settings
-
-- **Workers**: Run multiple uvicorn workers behind a reverse proxy (nginx, caddy)
-- **TLS**: Terminate TLS at the reverse proxy, not in uvicorn
-- **Secrets**: Use environment variables or secrets manager, never commit `.env` to version control
-- **Logging**: Configure Python logging to output structured JSON
-- **Health checks**: Use `GET /health/live` for liveness and `GET /health/ready` for readiness/load-balancer health checks (the old single `/health` endpoint was removed with no back-compat alias)
-- **Analytics DB**: Store on persistent volume, `data/` dir is auto-created on startup
-
-### Process Manager
-
-Use systemd, supervisord, or similar to manage the uvicorn process:
-
-```ini
-# /etc/systemd/system/llm-gateway.service
-[Unit]
-Description=LLM Gateway
-After=network.target
-
-[Service]
-Type=simple
-User=llm-gateway
-WorkingDirectory=/opt/llm-gateway
-EnvironmentFile=/opt/llm-gateway/.env
-ExecStart=/opt/llm-gateway/.venv/bin/uvicorn main:app --host 127.0.0.1 --port 8000
-Restart=always
-
-[Install]
-WantedBy=multi-user.target
-```
+Kubernetes manifests and SOPS secrets are maintained in the private
+`phuongddx/vps192-k8s-config` repository. This repository only tests, builds,
+and pushes immutable GHCR images, then opens a promotion PR there.
 
 ## Docker / Compose Deployment
 
