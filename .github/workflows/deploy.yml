@@ -66,14 +66,14 @@ jobs:
         run: |
           set -euo pipefail
           config="$RUNNER_TEMP/vps192-k8s-config"
-          printf '%s\n' "$GH_TOKEN" | gh auth login --with-token
+          gh auth setup-git
           gh repo clone phuongddx/vps192-k8s-config "$config"
           git -C "$config" config user.name "github-actions[bot]"
           git -C "$config" config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           branch="promote/$SERVICE-$SOURCE_SHA"
           git -C "$config" switch -c "$branch"
           overlay="apps/$SERVICE/vps192/kustomization.yaml"
-          python3 -c 'import pathlib,re,sys; path=pathlib.Path(sys.argv[1]); text=path.read_text(); pattern=r"(?m)^(\s*- name: "+re.escape(sys.argv[2])+r"\n\s*newTag: ).+$"; updated,count=re.subn(pattern,lambda match:match.group(1)+sys.argv[3],text); assert count == 1, count; path.write_text(updated)' "$overlay" "$IMAGE_REPO" "$SOURCE_SHA"
+          python3 -c 'import pathlib,re,sys; path=pathlib.Path(sys.argv[1]); text=path.read_text(); pattern=r"(?m)^(\s*- name: "+re.escape(sys.argv[2])+r"\n\s*newTag: ).+$"; updated,count=re.subn(pattern,lambda match:match.group(1)+sys.argv[3],text); assert count == 1, count; path.write_text(updated)' "$config/$overlay" "$IMAGE_REPO" "$SOURCE_SHA"
           git -C "$config" add "$overlay"
           git -C "$config" commit -m "promote($SERVICE): $SOURCE_SHA"
           git -C "$config" push origin "$branch"
