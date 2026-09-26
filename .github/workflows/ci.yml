@@ -2,6 +2,13 @@ name: CI
 on:
   push:
     branches: [main]
+    # Docs-only pushes to main skip CI, and therefore skip the deploy it triggers.
+    # Pull requests are never path-filtered so the required `ci-passed` check always reports.
+    paths-ignore:
+      - "**/*.md"
+      - "docs/**"
+      - "plans/**"
+      - ".planning/**"
   pull_request:
     branches: [main]
 
@@ -37,3 +44,14 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - run: docker build -t llm-gateway:ci .
+
+  # Single required status check for branch rules; avoids pinning matrix names like `test (3.12)`.
+  ci-passed:
+    if: always()
+    needs: [lint, test, docker-build]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fail unless every CI job succeeded
+        if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') || contains(needs.*.result, 'skipped')
+        run: exit 1
+      - run: echo "All CI jobs passed"
