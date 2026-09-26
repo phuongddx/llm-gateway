@@ -1,7 +1,11 @@
 name: Deploy to vps192 production
 
+# Flow: CI passes on main -> build image -> wait for approval -> promote -> Slack result.
+# The approval pause comes from required reviewers on the `vps192-promotion` environment.
 on:
-  push:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
     branches: [main]
   workflow_dispatch:
 
@@ -9,64 +13,74 @@ concurrency:
   group: build-${{ github.ref }}
   cancel-in-progress: false
 
+permissions: {}
+
+env:
+  # workflow_run: the commit CI tested; workflow_dispatch: the selected branch head.
+  SOURCE_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+  SERVICE: llm-gateway
+  IMAGE_REPO: ghcr.io/phuongddx/llm-gateway
+  CONFIG_REPO: phuongddx/vps192-k8s-config
+  RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
 jobs:
-  deploy:
+  build:
+    # Only CI runs triggered by a push to main may deploy; PR runs never do.
+    if: github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
     runs-on: ubuntu-latest
-    environment: vps192-promotion
     permissions:
       contents: read
       packages: write
     steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          python-version: "3.12"
-          cache: pip
+          ref: ${{ env.SOURCE_SHA }}
 
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install ruff==0.16.6
-          pip install --requirement requirements.txt
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
 
-      - name: Lint
-        run: python -m ruff check .
-
-      - name: Test
-        run: python -m pytest tests/ -q
-
-      - uses: docker/setup-buildx-action@v3
-
-      - uses: docker/login-action@v3
+      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push immutable image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
         with:
           context: .
           platforms: linux/amd64
           push: true
           provenance: false
           sbom: false
-          tags: ghcr.io/phuongddx/llm-gateway:${{ github.sha }}
+          tags: ${{ env.IMAGE_REPO }}:${{ env.SOURCE_SHA }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Open vps192 config promotion PR
+      - name: Ask for deploy approval on Slack
         env:
-          GH_TOKEN: ${{ secrets.VPS192_CONFIG_PROMOTION_TOKEN }}
-          SERVICE: llm-gateway
-          IMAGE_REPO: ghcr.io/phuongddx/llm-gateway
-          SOURCE_SHA: ${{ github.sha }}
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          .github/scripts/notify-slack.sh \
+            ":large_yellow_circle: *$SERVICE* \`${SOURCE_SHA:0:7}\` is ready for production. <$RUN_URL|Review and approve the deployment>"
+
+  promote:
+    needs: build
+    runs-on: ubuntu-latest
+    environment: vps192-promotion
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    outputs:
+      deploy_url: ${{ steps.wait.outputs.deploy_url }}
+    env:
+      GH_TOKEN: ${{ secrets.VPS192_CONFIG_PROMOTION_TOKEN }}
+    steps:
+      - name: Open vps192 config promotion PR
         run: |
           set -euo pipefail
           config="$RUNNER_TEMP/vps192-k8s-config"
           gh auth setup-git
-          gh repo clone phuongddx/vps192-k8s-config "$config"
+          gh repo clone "$CONFIG_REPO" "$config"
           git -C "$config" config user.name "github-actions[bot]"
           git -C "$config" config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           branch="promote/$SERVICE-$SOURCE_SHA"
@@ -75,12 +89,97 @@ jobs:
           python3 -c 'import pathlib,re,sys; path=pathlib.Path(sys.argv[1]); text=path.read_text(); pattern=r"(?m)^(\s*- name: "+re.escape(sys.argv[2])+r"\n\s*newTag: ).+$"; updated,count=re.subn(pattern,lambda match:match.group(1)+sys.argv[3],text); assert count == 1, count; path.write_text(updated)' "$config/$overlay" "$IMAGE_REPO" "$SOURCE_SHA"
           git -C "$config" add "$overlay"
           git -C "$config" commit -m "promote($SERVICE): $SOURCE_SHA"
-          git -C "$config" push origin "$branch"
-          if [ -z "$(gh pr list --repo phuongddx/vps192-k8s-config --head "$branch" --json url --jq '.[]')" ]; then
+          # --force keeps workflow re-runs idempotent on this bot-owned branch.
+          git -C "$config" push --force origin "$branch"
+          if [ -z "$(gh pr list --repo "$CONFIG_REPO" --head "$branch" --json url --jq '.[]')" ]; then
             gh pr create \
-              --repo phuongddx/vps192-k8s-config \
+              --repo "$CONFIG_REPO" \
               --base main \
               --head "$branch" \
               --title "promote($SERVICE): $SOURCE_SHA" \
               --body "Source commit: ${{ github.server_url }}/${{ github.repository }}/commit/$SOURCE_SHA"
           fi
+
+      - name: Merge promotion PR after its checks pass
+        id: merge
+        run: |
+          set -euo pipefail
+          branch="promote/$SERVICE-$SOURCE_SHA"
+          # Checks register a few seconds after the PR opens; wait so `--watch` has something to watch.
+          for _ in $(seq 1 30); do
+            count=$(gh pr view "$branch" --repo "$CONFIG_REPO" --json statusCheckRollup --jq '.statusCheckRollup | length')
+            [ "$count" -gt 0 ] && break
+            sleep 10
+          done
+          gh pr checks "$branch" --repo "$CONFIG_REPO" --watch --fail-fast --interval 15
+          gh pr merge "$branch" --repo "$CONFIG_REPO" --squash --delete-branch
+          merge_sha=$(gh pr view "$branch" --repo "$CONFIG_REPO" --json mergeCommit --jq '.mergeCommit.oid')
+          test -n "$merge_sha"
+          echo "merge_sha=$merge_sha" >> "$GITHUB_OUTPUT"
+
+      - name: Wait for vps192 rollout and health checks
+        id: wait
+        env:
+          MERGE_SHA: ${{ steps.merge.outputs.merge_sha }}
+        run: |
+          set -euo pipefail
+          run_id=""
+          for _ in $(seq 1 30); do
+            run_id=$(gh run list --repo "$CONFIG_REPO" --workflow deploy.yml --commit "$MERGE_SHA" \
+              --json databaseId --jq '.[0].databaseId // empty')
+            [ -n "$run_id" ] && break
+            sleep 10
+          done
+          test -n "$run_id"
+          echo "deploy_url=https://github.com/$CONFIG_REPO/actions/runs/$run_id" >> "$GITHUB_OUTPUT"
+          gh run watch "$run_id" --repo "$CONFIG_REPO" --exit-status --interval 15
+
+  notify:
+    needs: [build, promote]
+    if: always()
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          sparse-checkout: .github/scripts
+
+      - name: Post result to Slack
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          CI_EVENT: ${{ github.event.workflow_run.event }}
+          CI_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+          CI_URL: ${{ github.event.workflow_run.html_url }}
+          BUILD_RESULT: ${{ needs.build.result }}
+          PROMOTE_RESULT: ${{ needs.promote.result }}
+          DEPLOY_URL: ${{ needs.promote.outputs.deploy_url }}
+        run: |
+          set -euo pipefail
+          sha="\`${SOURCE_SHA:0:7}\`"
+          case "$BUILD_RESULT/$PROMOTE_RESULT" in
+            skipped/*)
+              # Build skipped means CI did not pass; alert only for real failures on main pushes.
+              if [ "$CI_EVENT" = push ] && [ "$CI_CONCLUSION" = failure ]; then
+                message=":x: *$SERVICE* CI failed on main at $sha. <$CI_URL|View CI run>"
+              else
+                exit 0
+              fi
+              ;;
+            success/success)
+              message=":white_check_mark: *$SERVICE* $sha deployed to production. <${DEPLOY_URL:-$RUN_URL}|View rollout>"
+              ;;
+            success/cancelled)
+              message=":white_circle: *$SERVICE* $sha was not deployed (cancelled or superseded). <$RUN_URL|View run>"
+              ;;
+            success/*)
+              message=":x: *$SERVICE* $sha was not deployed: approval rejected, promotion failed, or rollout failed. <${DEPLOY_URL:-$RUN_URL}|View run>"
+              ;;
+            cancelled/*)
+              message=":white_circle: *$SERVICE* $sha was not deployed (build cancelled). <$RUN_URL|View run>"
+              ;;
+            *)
+              message=":x: *$SERVICE* $sha image build failed. <$RUN_URL|View run>"
+              ;;
+          esac
+          .github/scripts/notify-slack.sh "$message"
