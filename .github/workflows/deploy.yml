@@ -75,7 +75,12 @@ jobs:
     env:
       GH_TOKEN: ${{ secrets.VPS192_CONFIG_PROMOTION_TOKEN }}
     steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          sparse-checkout: .github/scripts
+
       - name: Open vps192 config promotion PR
+        id: open
         run: |
           set -euo pipefail
           config="$RUNNER_TEMP/vps192-k8s-config"
@@ -91,6 +96,7 @@ jobs:
           git -C "$config" commit -m "promote($SERVICE): $SOURCE_SHA"
           # --force keeps workflow re-runs idempotent on this bot-owned branch.
           git -C "$config" push --force origin "$branch"
+          echo "head_sha=$(git -C "$config" rev-parse HEAD)" >> "$GITHUB_OUTPUT"
           if [ -z "$(gh pr list --repo "$CONFIG_REPO" --head "$branch" --json url --jq '.[]')" ]; then
             gh pr create \
               --repo "$CONFIG_REPO" \
@@ -100,18 +106,15 @@ jobs:
               --body "Source commit: ${{ github.server_url }}/${{ github.repository }}/commit/$SOURCE_SHA"
           fi
 
-      - name: Merge promotion PR after its checks pass
+      - name: Merge promotion PR after config validation passes
         id: merge
+        env:
+          HEAD_SHA: ${{ steps.open.outputs.head_sha }}
         run: |
           set -euo pipefail
+          # The config repo's `validate` workflow on this exact commit is the PR's merge gate.
+          .github/scripts/watch-config-run.sh validate.yml "$HEAD_SHA" pull_request
           branch="promote/$SERVICE-$SOURCE_SHA"
-          # Checks register a few seconds after the PR opens; wait so `--watch` has something to watch.
-          for _ in $(seq 1 30); do
-            count=$(gh pr view "$branch" --repo "$CONFIG_REPO" --json statusCheckRollup --jq '.statusCheckRollup | length')
-            [ "$count" -gt 0 ] && break
-            sleep 10
-          done
-          gh pr checks "$branch" --repo "$CONFIG_REPO" --watch --fail-fast --interval 15
           gh pr merge "$branch" --repo "$CONFIG_REPO" --squash --delete-branch
           merge_sha=$(gh pr view "$branch" --repo "$CONFIG_REPO" --json mergeCommit --jq '.mergeCommit.oid')
           test -n "$merge_sha"
@@ -121,18 +124,7 @@ jobs:
         id: wait
         env:
           MERGE_SHA: ${{ steps.merge.outputs.merge_sha }}
-        run: |
-          set -euo pipefail
-          run_id=""
-          for _ in $(seq 1 30); do
-            run_id=$(gh run list --repo "$CONFIG_REPO" --workflow deploy.yml --commit "$MERGE_SHA" \
-              --json databaseId --jq '.[0].databaseId // empty')
-            [ -n "$run_id" ] && break
-            sleep 10
-          done
-          test -n "$run_id"
-          echo "deploy_url=https://github.com/$CONFIG_REPO/actions/runs/$run_id" >> "$GITHUB_OUTPUT"
-          gh run watch "$run_id" --repo "$CONFIG_REPO" --exit-status --interval 15
+        run: .github/scripts/watch-config-run.sh deploy.yml "$MERGE_SHA" push deploy_url
 
   notify:
     needs: [build, promote]
